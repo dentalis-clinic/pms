@@ -4,6 +4,7 @@ import { parse } from "json2csv";
 import { DateTime } from "luxon";
 import { formatISTDateTime, formatISTDate } from "@/lib/utils/date";
 import type { PatientRow } from "@/types/patient";
+import { Button } from "@/components/ui";
 
 interface CSVExportButtonProps {
   patients: PatientRow[];
@@ -52,13 +53,13 @@ export default function CSVExportButton({ patients }: CSVExportButtonProps) {
   }
 
   return (
-    <button
-      type="button"
+    <Button
+      variant="secondary"
+      size="sm"
       onClick={handleExport}
       disabled={patients.length === 0}
-      className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
     >
       Export CSV
-    </button>
+    </Button>
   );
 }

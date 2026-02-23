@@ -1,19 +1,26 @@
+import Link from "next/link";
 import PublicBookingForm from "@/components/PublicBookingForm";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">
+    <div className="flex min-h-screen items-center justify-center bg-surface-secondary px-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+          <h1 className="text-heading-2 text-brand-950">
             DentalisPMS
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-body-sm text-neutral-500">
             Book your dental appointment
           </p>
         </div>
 
         <PublicBookingForm />
+
+        <p className="text-center text-caption text-neutral-400">
+          <Link href="/admin/login" className="hover:text-neutral-600">
+            Login as Admin
+          </Link>
+        </p>
       </div>
     </div>
   );

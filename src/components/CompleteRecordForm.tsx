@@ -2,6 +2,7 @@
 
 import { FormEvent, useState, useEffect } from "react";
 import type { PatientRow } from "@/types/patient";
+import { Button, Input, Textarea, FormField, Alert } from "@/components/ui";
 
 interface CompleteRecordFormProps {
   patient: PatientRow;
@@ -85,92 +86,63 @@ export default function CompleteRecordForm({
 
   const isLoading = formState.status === "loading";
 
-  const inputClassName =
-    "block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-400 dark:focus:ring-zinc-400";
-
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-brand-950/50"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="mx-4 w-full max-w-md rounded-lg border border-zinc-200 bg-white p-6 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="mx-4 w-full max-w-md rounded-lg border border-neutral-200 bg-surface-primary p-6 shadow-lg">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+          <h3 className="text-lg font-semibold text-neutral-950">
             Edit Record
           </h3>
           <button
             type="button"
             onClick={onClose}
-            className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+            className="text-neutral-400 hover:text-neutral-600"
           >
             &times;
           </button>
         </div>
 
-        <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
+        <p className="mb-4 text-sm text-neutral-500">
           {patient.patientId} &mdash; {patient.name}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {formState.status === "error" && (
-            <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-400">
-              {formState.message}
-            </div>
+            <Alert variant="error">{formState.message}</Alert>
           )}
 
-          <div className="space-y-1.5">
-            <label htmlFor="edit-name" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Name
-            </label>
-            <input id="edit-name" type="text" value={name} onChange={(e) => setName(e.target.value)} required maxLength={100} className={inputClassName} disabled={isLoading} />
-          </div>
+          <FormField label="Name" htmlFor="edit-name">
+            <Input id="edit-name" type="text" value={name} onChange={(e) => setName(e.target.value)} required maxLength={100} disabled={isLoading} />
+          </FormField>
 
-          <div className="space-y-1.5">
-            <label htmlFor="edit-phone" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Phone
-            </label>
-            <input id="edit-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required className={inputClassName} disabled={isLoading} />
-          </div>
+          <FormField label="Phone" htmlFor="edit-phone">
+            <Input id="edit-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required disabled={isLoading} />
+          </FormField>
 
-          <div className="space-y-1.5">
-            <label htmlFor="edit-email" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Email {!patient.email && <span className="text-amber-500">(missing)</span>}
-            </label>
-            <input id="edit-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClassName} placeholder="patient@example.com" disabled={isLoading} />
-          </div>
+          <FormField label="Email" htmlFor="edit-email" missing={!patient.email}>
+            <Input id="edit-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="patient@example.com" disabled={isLoading} />
+          </FormField>
 
-          <div className="space-y-1.5">
-            <label htmlFor="edit-dob" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Date of Birth {!patient.dateOfBirth && <span className="text-amber-500">(missing)</span>}
-            </label>
-            <input id="edit-dob" type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} className={inputClassName} disabled={isLoading} />
-          </div>
+          <FormField label="Date of Birth" htmlFor="edit-dob" missing={!patient.dateOfBirth}>
+            <Input id="edit-dob" type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} disabled={isLoading} />
+          </FormField>
 
-          <div className="space-y-1.5">
-            <label htmlFor="edit-reason" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Reason for Visit {!patient.reasonForVisit && <span className="text-amber-500">(missing)</span>}
-            </label>
-            <textarea id="edit-reason" value={reasonForVisit} onChange={(e) => setReasonForVisit(e.target.value)} rows={3} maxLength={1000} className={inputClassName} placeholder="Describe the reason for visit" disabled={isLoading} />
-          </div>
+          <FormField label="Reason for Visit" htmlFor="edit-reason" missing={!patient.reasonForVisit}>
+            <Textarea id="edit-reason" value={reasonForVisit} onChange={(e) => setReasonForVisit(e.target.value)} rows={3} maxLength={1000} placeholder="Describe the reason for visit" disabled={isLoading} />
+          </FormField>
 
           <div className="flex gap-3">
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="flex-1 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-            >
-              {isLoading ? "Saving..." : "Save Changes"}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isLoading}
-              className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
+            <Button type="submit" disabled={isLoading} className="flex-1" loading={isLoading} loadingText="Saving...">
+              Save Changes
+            </Button>
+            <Button type="button" variant="secondary" onClick={onClose} disabled={isLoading}>
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       </div>

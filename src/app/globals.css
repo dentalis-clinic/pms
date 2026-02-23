@@ -1,26 +1,481 @@
+@import url("https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,800,900&display=swap");
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════
+   DentalisPMS Design System
+   ═══════════════════════════════════════════════════════════════
+   Brand colors: #0F0053 (Deep Indigo) · #99EFF1 (Cyan)
+   Font: Satoshi (Fontshare)
+   Spacing: 4px grid
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ───────────────────────────────────────────────────────────────
+   1. PRIMITIVE COLOR TOKENS
+   Raw color scales — never reference these directly in components.
+   Use semantic tokens (section 2) instead.
+   ─────────────────────────────────────────────────────────────── */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ── Brand / Primary (Deep Indigo) ──────────────────────────
+     Anchor: #0F0053 → mapped to 950                            */
+  --brand-50:  #F2F0FF;
+  --brand-100: #E7E2FF;
+  --brand-200: #D1C8FF;
+  --brand-300: #B3A4FF;
+  --brand-400: #9278FF;
+  --brand-500: #7450FF;
+  --brand-600: #5C30F7;
+  --brand-700: #4A1DE3;
+  --brand-800: #3B14BF;
+  --brand-900: #1E0A80;
+  --brand-950: #0F0053;
+
+  /* ── Accent (Cyan) ──────────────────────────────────────────
+     Anchor: #99EFF1 → mapped to 300                            */
+  --accent-50:  #EEFEFE;
+  --accent-100: #D5FBFC;
+  --accent-200: #B0F6F8;
+  --accent-300: #99EFF1;
+  --accent-400: #3EDCE0;
+  --accent-500: #1EC2C7;
+  --accent-600: #179CA2;
+  --accent-700: #187D83;
+  --accent-800: #1B646A;
+  --accent-900: #1B5359;
+  --accent-950: #0A3538;
+
+  /* ── Neutral (cool-tinted, slight indigo shift) ─────────── */
+  --neutral-0:   #FFFFFF;
+  --neutral-50:  #F8F8FC;
+  --neutral-100: #F0F0F6;
+  --neutral-200: #E3E3ED;
+  --neutral-300: #CFCFDD;
+  --neutral-400: #A8A8BE;
+  --neutral-500: #7E7E9A;
+  --neutral-600: #5C5C78;
+  --neutral-700: #454560;
+  --neutral-800: #2D2D48;
+  --neutral-900: #1B1B34;
+  --neutral-950: #0F0F24;
+
+  /* ── Semantic: Success (Green) ──────────────────────────── */
+  --success-50:  #ECFDF5;
+  --success-100: #D1FAE5;
+  --success-200: #A7F3D0;
+  --success-300: #6EE7B7;
+  --success-400: #34D399;
+  --success-500: #10B981;
+  --success-600: #059669;
+  --success-700: #047857;
+  --success-800: #065F46;
+  --success-900: #064E3B;
+  --success-950: #022C22;
+
+  /* ── Semantic: Warning (Amber) ─────────────────────────── */
+  --warning-50:  #FFFBEB;
+  --warning-100: #FEF3C7;
+  --warning-200: #FDE68A;
+  --warning-300: #FCD34D;
+  --warning-400: #FBBF24;
+  --warning-500: #F59E0B;
+  --warning-600: #D97706;
+  --warning-700: #B45309;
+  --warning-800: #92400E;
+  --warning-900: #78350F;
+  --warning-950: #451A03;
+
+  /* ── Semantic: Error (Red) ──────────────────────────────── */
+  --error-50:  #FEF2F2;
+  --error-100: #FEE2E2;
+  --error-200: #FECACA;
+  --error-300: #FCA5A5;
+  --error-400: #F87171;
+  --error-500: #EF4444;
+  --error-600: #DC2626;
+  --error-700: #B91C1C;
+  --error-800: #991B1B;
+  --error-900: #7F1D1D;
+  --error-950: #450A0A;
+
+  /* ── Semantic: Info (Blue) ──────────────────────────────── */
+  --info-50:  #EFF6FF;
+  --info-100: #DBEAFE;
+  --info-200: #BFDBFE;
+  --info-300: #93C5FD;
+  --info-400: #60A5FA;
+  --info-500: #3B82F6;
+  --info-600: #2563EB;
+  --info-700: #1D4ED8;
+  --info-800: #1E40AF;
+  --info-900: #1E3A8A;
+  --info-950: #172554;
+
+  /* ───────────────────────────────────────────────────────────
+     2. SEMANTIC / ALIAS TOKENS
+     Component-level references. Switch these for dark mode.
+     ─────────────────────────────────────────────────────────── */
+
+  /* Surfaces */
+  --surface-primary:    var(--neutral-0);
+  --surface-secondary:  var(--neutral-50);
+  --surface-tertiary:   var(--neutral-100);
+  --surface-inverse:    var(--brand-950);
+  --surface-brand:      var(--brand-50);
+  --surface-accent:     var(--accent-50);
+
+  /* Borders */
+  --border-primary:     var(--neutral-200);
+  --border-secondary:   var(--neutral-300);
+  --border-focus:       var(--brand-500);
+  --border-error:       var(--error-500);
+
+  /* Text */
+  --text-primary:       var(--neutral-950);
+  --text-secondary:     var(--neutral-600);
+  --text-tertiary:      var(--neutral-400);
+  --text-inverse:       var(--neutral-0);
+  --text-brand:         var(--brand-700);
+  --text-accent:        var(--accent-700);
+  --text-link:          var(--brand-600);
+  --text-error:         var(--error-600);
+  --text-success:       var(--success-600);
+  --text-warning:       var(--warning-600);
+
+  /* Interactive */
+  --interactive-primary:       var(--brand-600);
+  --interactive-primary-hover: var(--brand-700);
+  --interactive-primary-active:var(--brand-800);
+  --interactive-accent:        var(--accent-500);
+  --interactive-accent-hover:  var(--accent-600);
+  --interactive-disabled-bg:   var(--neutral-100);
+  --interactive-disabled-text: var(--neutral-400);
+
+  /* Focus ring */
+  --focus-ring: var(--brand-500);
+  --focus-ring-offset: var(--neutral-0);
+
+  /* ───────────────────────────────────────────────────────────
+     3. TYPOGRAPHY TOKENS
+     Modular scale · Base 16px · Ratio ~1.25 (Major Third)
+     ─────────────────────────────────────────────────────────── */
+
+  /* Font families */
+  --font-sans:  "Satoshi", system-ui, -apple-system, sans-serif;
+  --font-mono:  "JetBrains Mono", ui-monospace, monospace;
+
+  /* Font weights */
+  --weight-light:    300;
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+  --weight-black:    900;
+
+  /* Type scale — [size / line-height / letter-spacing] */
+  --text-display-lg:     3rem;      /* 48px */
+  --leading-display-lg:  3.5rem;    /* 56px */
+  --tracking-display-lg: -0.02em;
+
+  --text-display-sm:     2.25rem;   /* 36px */
+  --leading-display-sm:  2.75rem;   /* 44px */
+  --tracking-display-sm: -0.02em;
+
+  --text-heading-1:      1.875rem;  /* 30px */
+  --leading-heading-1:   2.375rem;  /* 38px */
+  --tracking-heading-1:  -0.015em;
+
+  --text-heading-2:      1.5rem;    /* 24px */
+  --leading-heading-2:   2rem;      /* 32px */
+  --tracking-heading-2:  -0.01em;
+
+  --text-heading-3:      1.25rem;   /* 20px */
+  --leading-heading-3:   1.75rem;   /* 28px */
+  --tracking-heading-3:  -0.01em;
+
+  --text-heading-4:      1.125rem;  /* 18px */
+  --leading-heading-4:   1.625rem;  /* 26px */
+  --tracking-heading-4:  -0.005em;
+
+  --text-body-lg:        1.125rem;  /* 18px */
+  --leading-body-lg:     1.75rem;   /* 28px */
+
+  --text-body:           1rem;      /* 16px */
+  --leading-body:        1.5rem;    /* 24px */
+
+  --text-body-sm:        0.875rem;  /* 14px */
+  --leading-body-sm:     1.25rem;   /* 20px */
+
+  --text-caption:        0.75rem;   /* 12px */
+  --leading-caption:     1rem;      /* 16px */
+  --tracking-caption:    0.02em;
+
+  --text-overline:       0.6875rem; /* 11px */
+  --leading-overline:    1rem;      /* 16px */
+  --tracking-overline:   0.08em;
+
+  /* ───────────────────────────────────────────────────────────
+     4. SPACING TOKENS
+     4px grid · Tailwind-compatible naming
+     ─────────────────────────────────────────────────────────── */
+
+  --space-px:  1px;
+  --space-0:   0px;
+  --space-0-5: 0.125rem;  /* 2px  */
+  --space-1:   0.25rem;   /* 4px  */
+  --space-1-5: 0.375rem;  /* 6px  */
+  --space-2:   0.5rem;    /* 8px  */
+  --space-2-5: 0.625rem;  /* 10px */
+  --space-3:   0.75rem;   /* 12px */
+  --space-3-5: 0.875rem;  /* 14px */
+  --space-4:   1rem;      /* 16px */
+  --space-5:   1.25rem;   /* 20px */
+  --space-6:   1.5rem;    /* 24px */
+  --space-8:   2rem;      /* 32px */
+  --space-10:  2.5rem;    /* 40px */
+  --space-12:  3rem;      /* 48px */
+  --space-16:  4rem;      /* 64px */
+  --space-20:  5rem;      /* 80px */
+  --space-24:  6rem;      /* 96px */
+  --space-32:  8rem;      /* 128px */
+
+  /* ───────────────────────────────────────────────────────────
+     5. RADIUS & SHADOW TOKENS
+     ─────────────────────────────────────────────────────────── */
+
+  --radius-sm:   0.25rem;   /* 4px  */
+  --radius-md:   0.5rem;    /* 8px  */
+  --radius-lg:   0.75rem;   /* 12px */
+  --radius-xl:   1rem;      /* 16px */
+  --radius-2xl:  1.5rem;    /* 24px */
+  --radius-full: 9999px;
+
+  --shadow-xs:  0 1px 2px 0 rgb(15 0 83 / 0.05);
+  --shadow-sm:  0 1px 3px 0 rgb(15 0 83 / 0.08), 0 1px 2px -1px rgb(15 0 83 / 0.08);
+  --shadow-md:  0 4px 6px -1px rgb(15 0 83 / 0.08), 0 2px 4px -2px rgb(15 0 83 / 0.06);
+  --shadow-lg:  0 10px 15px -3px rgb(15 0 83 / 0.08), 0 4px 6px -4px rgb(15 0 83 / 0.06);
+  --shadow-xl:  0 20px 25px -5px rgb(15 0 83 / 0.08), 0 8px 10px -6px rgb(15 0 83 / 0.06);
 }
+
+/* ───────────────────────────────────────────────────────────────
+   6. TAILWIND v4 THEME REGISTRATION
+   Maps CSS tokens → Tailwind utility classes
+   e.g. --color-brand-500 → bg-brand-500, text-brand-500, etc.
+   ─────────────────────────────────────────────────────────────── */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* ── Colors: Brand ─────────────────────────────────────── */
+  --color-brand-50:  var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-brand-950: var(--brand-950);
+
+  /* ── Colors: Accent ────────────────────────────────────── */
+  --color-accent-50:  var(--accent-50);
+  --color-accent-100: var(--accent-100);
+  --color-accent-200: var(--accent-200);
+  --color-accent-300: var(--accent-300);
+  --color-accent-400: var(--accent-400);
+  --color-accent-500: var(--accent-500);
+  --color-accent-600: var(--accent-600);
+  --color-accent-700: var(--accent-700);
+  --color-accent-800: var(--accent-800);
+  --color-accent-900: var(--accent-900);
+  --color-accent-950: var(--accent-950);
+
+  /* ── Colors: Neutral ───────────────────────────────────── */
+  --color-neutral-0:   var(--neutral-0);
+  --color-neutral-50:  var(--neutral-50);
+  --color-neutral-100: var(--neutral-100);
+  --color-neutral-200: var(--neutral-200);
+  --color-neutral-300: var(--neutral-300);
+  --color-neutral-400: var(--neutral-400);
+  --color-neutral-500: var(--neutral-500);
+  --color-neutral-600: var(--neutral-600);
+  --color-neutral-700: var(--neutral-700);
+  --color-neutral-800: var(--neutral-800);
+  --color-neutral-900: var(--neutral-900);
+  --color-neutral-950: var(--neutral-950);
+
+  /* ── Colors: Semantic ──────────────────────────────────── */
+  --color-success-50:  var(--success-50);
+  --color-success-100: var(--success-100);
+  --color-success-500: var(--success-500);
+  --color-success-600: var(--success-600);
+  --color-success-700: var(--success-700);
+  --color-success-950: var(--success-950);
+
+  --color-warning-50:  var(--warning-50);
+  --color-warning-100: var(--warning-100);
+  --color-warning-500: var(--warning-500);
+  --color-warning-600: var(--warning-600);
+  --color-warning-700: var(--warning-700);
+  --color-warning-950: var(--warning-950);
+
+  --color-error-50:  var(--error-50);
+  --color-error-100: var(--error-100);
+  --color-error-500: var(--error-500);
+  --color-error-600: var(--error-600);
+  --color-error-700: var(--error-700);
+  --color-error-950: var(--error-950);
+
+  --color-info-50:  var(--info-50);
+  --color-info-100: var(--info-100);
+  --color-info-500: var(--info-500);
+  --color-info-600: var(--info-600);
+  --color-info-700: var(--info-700);
+  --color-info-950: var(--info-950);
+
+  /* ── Colors: Semantic Aliases ──────────────────────────── */
+  --color-surface-primary:   var(--surface-primary);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-surface-tertiary:  var(--surface-tertiary);
+  --color-surface-inverse:   var(--surface-inverse);
+  --color-surface-brand:     var(--surface-brand);
+  --color-surface-accent:    var(--surface-accent);
+
+  --color-border-primary:   var(--border-primary);
+  --color-border-secondary: var(--border-secondary);
+  --color-border-focus:     var(--border-focus);
+  --color-border-error:     var(--border-error);
+
+  /* ── Typography ────────────────────────────────────────── */
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  /* ── Spacing (extends Tailwind defaults) ───────────────── */
+  --spacing-px:  var(--space-px);
+  --spacing-0:   var(--space-0);
+  --spacing-0-5: var(--space-0-5);
+  --spacing-1:   var(--space-1);
+  --spacing-1-5: var(--space-1-5);
+  --spacing-2:   var(--space-2);
+  --spacing-2-5: var(--space-2-5);
+  --spacing-3:   var(--space-3);
+  --spacing-3-5: var(--space-3-5);
+  --spacing-4:   var(--space-4);
+  --spacing-5:   var(--space-5);
+  --spacing-6:   var(--space-6);
+  --spacing-8:   var(--space-8);
+  --spacing-10:  var(--space-10);
+  --spacing-12:  var(--space-12);
+  --spacing-16:  var(--space-16);
+  --spacing-20:  var(--space-20);
+  --spacing-24:  var(--space-24);
+  --spacing-32:  var(--space-32);
+
+  /* ── Border Radius ─────────────────────────────────────── */
+  --radius-sm:   var(--radius-sm);
+  --radius-md:   var(--radius-md);
+  --radius-lg:   var(--radius-lg);
+  --radius-xl:   var(--radius-xl);
+  --radius-2xl:  var(--radius-2xl);
+  --radius-full: var(--radius-full);
+
+  /* ── Shadows ───────────────────────────────────────────── */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* ───────────────────────────────────────────────────────────────
+   7. BASE STYLES
+   ─────────────────────────────────────────────────────────────── */
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   8. TYPOGRAPHY UTILITY CLASSES
+   Apply consistent type styles across the app
+   ─────────────────────────────────────────────────────────────── */
+
+.text-display-lg {
+  font-size: var(--text-display-lg);
+  line-height: var(--leading-display-lg);
+  letter-spacing: var(--tracking-display-lg);
+  font-weight: var(--weight-bold);
+}
+
+.text-display-sm {
+  font-size: var(--text-display-sm);
+  line-height: var(--leading-display-sm);
+  letter-spacing: var(--tracking-display-sm);
+  font-weight: var(--weight-bold);
+}
+
+.text-heading-1 {
+  font-size: var(--text-heading-1);
+  line-height: var(--leading-heading-1);
+  letter-spacing: var(--tracking-heading-1);
+  font-weight: var(--weight-bold);
+}
+
+.text-heading-2 {
+  font-size: var(--text-heading-2);
+  line-height: var(--leading-heading-2);
+  letter-spacing: var(--tracking-heading-2);
+  font-weight: var(--weight-semibold);
+}
+
+.text-heading-3 {
+  font-size: var(--text-heading-3);
+  line-height: var(--leading-heading-3);
+  letter-spacing: var(--tracking-heading-3);
+  font-weight: var(--weight-semibold);
+}
+
+.text-heading-4 {
+  font-size: var(--text-heading-4);
+  line-height: var(--leading-heading-4);
+  letter-spacing: var(--tracking-heading-4);
+  font-weight: var(--weight-medium);
+}
+
+.text-body-lg {
+  font-size: var(--text-body-lg);
+  line-height: var(--leading-body-lg);
+  font-weight: var(--weight-regular);
+}
+
+.text-body {
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  font-weight: var(--weight-regular);
+}
+
+.text-body-sm {
+  font-size: var(--text-body-sm);
+  line-height: var(--leading-body-sm);
+  font-weight: var(--weight-regular);
+}
+
+.text-caption {
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+  letter-spacing: var(--tracking-caption);
+  font-weight: var(--weight-medium);
+}
+
+.text-overline {
+  font-size: var(--text-overline);
+  line-height: var(--leading-overline);
+  letter-spacing: var(--tracking-overline);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
 }

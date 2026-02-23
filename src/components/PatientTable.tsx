@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { formatISTDateTime, formatISTDate } from "@/lib/utils/date";
 import type { PatientRow } from "@/types/patient";
 import CompleteRecordForm from "./CompleteRecordForm";
+import { Input, Badge } from "@/components/ui";
 
 interface PatientTableProps {
   patients: PatientRow[];
@@ -135,12 +136,12 @@ export default function PatientTable({
     sortKey === key ? (sortAsc ? " \u2191" : " \u2193") : "";
 
   const thClass =
-    "px-3 py-2 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider cursor-pointer select-none hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200";
+    "px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider cursor-pointer select-none hover:text-neutral-700";
 
   if (patients.length === 0) {
     return (
-      <div className="rounded-lg border border-zinc-200 bg-white p-8 text-center dark:border-zinc-800 dark:bg-zinc-900">
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+      <div className="rounded-lg border border-neutral-200 bg-surface-primary p-8 text-center">
+        <p className="text-sm text-neutral-500">
           No patient records yet. Use the Walk-in tab to register a patient or share the public booking link.
         </p>
       </div>
@@ -150,18 +151,18 @@ export default function PatientTable({
   return (
     <div className="space-y-3">
       {/* Search */}
-      <input
+      <Input
         type="text"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search by name, phone, or patient ID..."
-        className="w-full max-w-sm rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
+        className="max-w-sm"
       />
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
-        <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
-          <thead className="bg-zinc-50 dark:bg-zinc-900">
+      <div className="overflow-x-auto rounded-lg border border-neutral-200">
+        <table className="min-w-full divide-y divide-neutral-200">
+          <thead className="bg-surface-secondary">
             <tr>
               <th className={thClass} onClick={() => handleSort("patientId")}>
                 ID{sortIndicator("patientId")}
@@ -187,7 +188,7 @@ export default function PatientTable({
               <th className="px-3 py-2" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-100 bg-white dark:divide-zinc-800 dark:bg-zinc-950">
+          <tbody className="divide-y divide-neutral-100 bg-surface-primary">
             {displayRows.map((p) => {
               const isHighlighted = highlightId === p.id;
               const isGrouped = p.phoneCount > 1;
@@ -198,70 +199,60 @@ export default function PatientTable({
                   key={p.id}
                   className={`text-sm ${
                     isHighlighted
-                      ? "animate-pulse bg-amber-50 dark:bg-amber-950"
+                      ? "animate-pulse bg-warning-50"
                       : ""
                   } ${
                     isGrouped && expandedPhones.has(p.phone) && !isGroupPrimary
-                      ? "bg-zinc-50 dark:bg-zinc-900"
+                      ? "bg-surface-secondary"
                       : ""
                   }`}
                 >
-                  <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-zinc-700 dark:text-zinc-300">
+                  <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-neutral-700">
                     {p.patientId}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-zinc-900 dark:text-zinc-100">
+                  <td className="whitespace-nowrap px-3 py-2 text-neutral-950">
                     {p.name}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-zinc-600 dark:text-zinc-400">
+                  <td className="whitespace-nowrap px-3 py-2 text-neutral-600">
                     {p.phone}
                     {isGrouped && isGroupPrimary && (
-                      <button
-                        type="button"
-                        onClick={() => togglePhone(p.phone)}
-                        className="ml-1.5 inline-flex items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:hover:bg-blue-800"
-                      >
+                      <Badge variant="info" interactive onClick={() => togglePhone(p.phone)} className="ml-1.5">
                         {p.phoneCount}
                         <span className="ml-0.5">
                           {expandedPhones.has(p.phone) ? "\u25B4" : "\u25BE"}
                         </span>
-                      </button>
+                      </Badge>
                     )}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-zinc-600 dark:text-zinc-400">
-                    {p.email ?? <span className="text-zinc-300 dark:text-zinc-600">&mdash;</span>}
+                  <td className="whitespace-nowrap px-3 py-2 text-neutral-600">
+                    {p.email ?? <span className="text-neutral-300">&mdash;</span>}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-zinc-600 dark:text-zinc-400">
-                    {p.dateOfBirth ? formatISTDate(new Date(p.dateOfBirth)) : <span className="text-zinc-300 dark:text-zinc-600">&mdash;</span>}
+                  <td className="whitespace-nowrap px-3 py-2 text-neutral-600">
+                    {p.dateOfBirth ? formatISTDate(new Date(p.dateOfBirth)) : <span className="text-neutral-300">&mdash;</span>}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-zinc-600 dark:text-zinc-400">
+                  <td className="whitespace-nowrap px-3 py-2 text-neutral-600">
                     {formatISTDateTime(new Date(p.preferredDateTime))}
                   </td>
-                  <td className="max-w-[200px] truncate px-3 py-2 text-zinc-600 dark:text-zinc-400" title={p.reasonForVisit ?? undefined}>
-                    {p.reasonForVisit ?? <span className="text-zinc-300 dark:text-zinc-600">&mdash;</span>}
+                  <td className="max-w-[200px] truncate px-3 py-2 text-neutral-600" title={p.reasonForVisit ?? undefined}>
+                    {p.reasonForVisit ?? <span className="text-neutral-300">&mdash;</span>}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-zinc-500 dark:text-zinc-400 text-xs">
+                  <td className="whitespace-nowrap px-3 py-2 text-neutral-500 text-xs">
                     {formatISTDateTime(new Date(p.createdAt))}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2">
                     {p.isComplete ? (
-                      <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900 dark:text-green-300">
-                        Complete
-                      </span>
+                      <Badge variant="success">Complete</Badge>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => setEditingPatient(p)}
-                        className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-200 dark:bg-amber-900 dark:text-amber-300 dark:hover:bg-amber-800"
-                      >
+                      <Badge variant="warning" interactive onClick={() => setEditingPatient(p)}>
                         Incomplete
-                      </button>
+                      </Badge>
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2">
                     <button
                       type="button"
                       onClick={() => setEditingPatient(p)}
-                      className="text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                      className="text-xs text-neutral-500 hover:text-neutral-700"
                     >
                       Edit
                     </button>
@@ -273,7 +264,7 @@ export default function PatientTable({
         </table>
       </div>
 
-      <p className="text-xs text-zinc-400 dark:text-zinc-500">
+      <p className="text-xs text-neutral-400">
         {filtered.length} record{filtered.length !== 1 ? "s" : ""}
         {search && ` matching "${search}"`}
       </p>
