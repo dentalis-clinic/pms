@@ -1,19 +1,19 @@
-import { PrismaClient, Prisma } from "@/generated/prisma/client";
+import { PrismaClient, Prisma, type Sex } from "@/generated/prisma/client";
 import { getCurrentISTDate } from "./date";
+import { normalizePhoneNumber } from "./phone";
 
 const CLINIC_PREFIX = "DDCJ";
 const MAX_RETRIES = 3;
 
 /** Transaction client type — PrismaClient minus interactive-tx-disallowed methods. */
-type TxClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
+export type TxClient = Omit<
+  PrismaClient,
+  "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
+>;
 
 /**
  * Generate a patient ID in the format DDCJ-YYYYMMDD-XXXX.
- * Must be called inside a Prisma $transaction with serializable isolation
- * to prevent race conditions on the daily serial number.
- *
- * @param tx - Prisma transaction client
- * @param retryOffset - Internal: offset added on unique constraint retry
+ * Must be called inside a serializable Prisma transaction.
  */
 export async function generatePatientId(
   tx: TxClient,
@@ -23,9 +23,7 @@ export async function generatePatientId(
   const prefix = `${CLINIC_PREFIX}-${todayIST}`;
 
   const todayCount = await tx.patient.count({
-    where: {
-      patientId: { startsWith: prefix },
-    },
+    where: { patientId: { startsWith: prefix } },
   });
 
   const serial = (todayCount + 1 + retryOffset).toString().padStart(4, "0");
@@ -33,35 +31,81 @@ export async function generatePatientId(
 }
 
 /**
- * Wrapper that creates a patient record with a generated ID,
- * retrying up to 3 times on unique constraint violations.
+ * Find an existing patient by normalized phone + case-insensitive name,
+ * or create a new one with a generated DDCJ ID.
+ *
+ * Optionally updates email/dateOfBirth on the existing patient if newly provided.
  */
-export async function createPatientWithId(
+export async function findOrCreatePatient(
   prisma: PrismaClient,
-  data: Prisma.PatientCreateInput | Record<string, unknown>
-): Promise<{ patientId: string; record: unknown }> {
+  data: {
+    name: string;
+    phone: string;
+    email?: string | null;
+    dateOfBirth?: Date | null;
+    sex?: Sex | null;
+  }
+): Promise<{ patientId: string; patient: { id: string; patientId: string }; isNew: boolean }> {
+  const normalizedPhone = normalizePhoneNumber(data.phone);
+
+  // Try to find existing patient by phone + name (case-insensitive)
+  const existing = await prisma.patient.findFirst({
+    where: {
+      phone: normalizedPhone,
+      name: { equals: data.name, mode: "insensitive" },
+    },
+  });
+
+  if (existing) {
+    // Optionally update demographics if newly provided
+    const updates: Record<string, unknown> = {};
+    if (data.email && !existing.email) updates.email = data.email;
+    if (data.dateOfBirth && !existing.dateOfBirth)
+      updates.dateOfBirth = data.dateOfBirth;
+    if (data.sex && !existing.sex) updates.sex = data.sex;
+
+    if (Object.keys(updates).length > 0) {
+      await prisma.patient.update({
+        where: { id: existing.id },
+        data: updates,
+      });
+    }
+
+    return {
+      patientId: existing.patientId,
+      patient: { id: existing.id, patientId: existing.patientId },
+      isNew: false,
+    };
+  }
+
+  // Create new patient with generated ID
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       const result = await prisma.$transaction(
         async (tx) => {
           const patientId = await generatePatientId(tx, attempt);
           const record = await tx.patient.create({
-            data: { ...data, patientId } as Prisma.PatientCreateInput,
+            data: {
+              patientId,
+              name: data.name,
+              phone: normalizedPhone,
+              email: data.email || null,
+              dateOfBirth: data.dateOfBirth || null,
+              sex: data.sex || null,
+            },
           });
-          return { patientId, record };
+          return { patientId, patient: { id: record.id, patientId } };
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
       );
-      return result;
+      return { ...result, isNew: true };
     } catch (error: unknown) {
       const isUniqueViolation =
         error instanceof Error &&
         "code" in error &&
         (error as { code: string }).code === "P2002";
 
-      if (isUniqueViolation && attempt < MAX_RETRIES - 1) {
-        continue;
-      }
+      if (isUniqueViolation && attempt < MAX_RETRIES - 1) continue;
       throw error;
     }
   }

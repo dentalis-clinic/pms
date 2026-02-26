@@ -2,8 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
-import { patchPatientSchema } from "@/lib/validations/appointment";
-import { normalizePhoneNumber } from "@/lib/utils/phone";
+import { patchAppointmentSchema } from "@/lib/validations/appointment";
+import type { AppointmentStatus } from "@/generated/prisma/client";
+
+/** Valid status transitions — terminal states have no outgoing edges. */
+const VALID_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
+  TENTATIVE: ["CONFIRMED", "CANCELLED"],
+  CONFIRMED: ["COMPLETED", "CANCELLED"],
+  COMPLETED: [],
+  CANCELLED: [],
+};
 
 export async function PATCH(
   request: NextRequest,
@@ -33,18 +41,21 @@ export async function PATCH(
       );
     }
 
-    // Find existing patient
-    const existing = await prisma.patient.findUnique({ where: { id } });
+    // Find appointment
+    const existing = await prisma.appointment.findUnique({
+      where: { id },
+      include: { patient: true },
+    });
     if (!existing) {
       return NextResponse.json(
-        { success: false, error: "Patient not found" },
+        { success: false, error: "Appointment not found" },
         { status: 404 }
       );
     }
 
     // Validate body
     const body = await request.json();
-    const parsed = patchPatientSchema.safeParse(body);
+    const parsed = patchAppointmentSchema.safeParse(body);
 
     if (!parsed.success) {
       const errors = z.prettifyError(parsed.error);
@@ -56,58 +67,59 @@ export async function PATCH(
 
     const data = parsed.data;
 
-    // Build update data
-    const updateData: Record<string, unknown> = {};
-
-    if (data.name !== undefined) updateData.name = data.name;
-    if (data.preferredDateTime !== undefined)
-      updateData.preferredDateTime = data.preferredDateTime;
-    if (data.reasonForVisit !== undefined)
-      updateData.reasonForVisit = data.reasonForVisit || null;
-    if (data.email !== undefined) updateData.email = data.email || null;
-    if (data.dateOfBirth !== undefined)
-      updateData.dateOfBirth = data.dateOfBirth ?? null;
-
-    // Normalize phone if provided
-    if (data.phone !== undefined) {
-      try {
-        updateData.phone = normalizePhoneNumber(data.phone);
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Invalid phone number";
+    // Enforce valid status transitions
+    if (data.status) {
+      const allowed = VALID_TRANSITIONS[existing.status];
+      if (!allowed.includes(data.status as AppointmentStatus)) {
         return NextResponse.json(
-          { success: false, error: message },
+          {
+            success: false,
+            error: `Cannot transition from ${existing.status} to ${data.status}.`,
+          },
           { status: 400 }
         );
       }
     }
 
-    // Recalculate isComplete: merge existing + patch
-    const mergedEmail = data.email !== undefined ? data.email : existing.email;
-    const mergedDob =
-      data.dateOfBirth !== undefined ? data.dateOfBirth : existing.dateOfBirth;
-    const mergedReason =
-      data.reasonForVisit !== undefined
-        ? data.reasonForVisit
-        : existing.reasonForVisit;
+    // Build update data
+    const updateData: Record<string, unknown> = {};
+    if (data.status !== undefined) updateData.status = data.status;
+    if (data.reasonForVisit !== undefined)
+      updateData.reasonForVisit = data.reasonForVisit || null;
+    if (data.notes !== undefined) updateData.notes = data.notes || null;
+    if (data.preferredDateTime !== undefined)
+      updateData.preferredDateTime = data.preferredDateTime;
 
-    updateData.isComplete = !!(mergedEmail && mergedDob && mergedReason);
-
-    const updated = await prisma.patient.update({
+    const updated = await prisma.appointment.update({
       where: { id },
       data: updateData,
+      include: { patient: true, prescription: true },
     });
 
     // Serialize dates
-    const patient = {
+    const appointment = {
       ...updated,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
       preferredDateTime: updated.preferredDateTime.toISOString(),
-      dateOfBirth: updated.dateOfBirth?.toISOString() ?? null,
+      patient: {
+        ...updated.patient,
+        createdAt: updated.patient.createdAt.toISOString(),
+        updatedAt: updated.patient.updatedAt.toISOString(),
+        dateOfBirth: updated.patient.dateOfBirth?.toISOString() ?? null,
+      },
+      prescription: updated.prescription
+        ? {
+            ...updated.prescription,
+            createdAt: updated.prescription.createdAt.toISOString(),
+            updatedAt: updated.prescription.updatedAt.toISOString(),
+            nextVisitDate:
+              updated.prescription.nextVisitDate?.toISOString() ?? null,
+          }
+        : null,
     };
 
-    return NextResponse.json({ success: true, patient });
+    return NextResponse.json({ success: true, appointment });
   } catch (error) {
     console.error("PATCH /api/appointments/[id] error:", error);
     return NextResponse.json(

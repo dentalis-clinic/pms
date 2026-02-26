@@ -34,7 +34,8 @@ async function main() {
     return;
   }
 
-  // Create user in Supabase Auth
+  // Create user in Supabase Auth (or fetch existing)
+  let userId: string;
   const { data: authData, error: authError } =
     await supabase.auth.admin.createUser({
       email,
@@ -43,13 +44,22 @@ async function main() {
     });
 
   if (authError) {
-    throw new Error(`Supabase Auth error: ${authError.message}`);
+    // User may already exist in Supabase Auth (e.g. after DB reset)
+    const { data: listData } = await supabase.auth.admin.listUsers();
+    const existingUser = listData?.users?.find((u) => u.email === email);
+    if (!existingUser) {
+      throw new Error(`Supabase Auth error: ${authError.message}`);
+    }
+    userId = existingUser.id;
+    console.log(`Supabase Auth user already exists, reusing ID: ${userId}`);
+  } else {
+    userId = authData.user.id;
   }
 
   // Create matching admin record in our database
   const admin = await prisma.admin.create({
     data: {
-      id: authData.user.id, // Same UUID as Supabase auth.users
+      id: userId, // Same UUID as Supabase auth.users
       email,
       name,
     },

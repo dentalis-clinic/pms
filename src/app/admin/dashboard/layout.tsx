@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { DashboardProvider } from "@/components/admin/DashboardContext";
 import Sidebar from "@/components/admin/Sidebar";
 import DashboardHeader from "@/components/admin/DashboardHeader";
-import WalkInSlideOver from "@/components/admin/WalkInSlideOver";
+import AppointmentSlideOver from "@/components/admin/AppointmentSlideOver";
 
 export const dynamic = "force-dynamic";
 
@@ -30,17 +30,8 @@ export default async function DashboardLayout({
   return (
     <DashboardProvider>
       <div className="min-h-screen bg-surface-secondary">
-        <Sidebar adminInfo={{ name: admin.name, email: admin.email }} />
-
-        {/* Main content area — offset by sidebar width on desktop */}
-        <div className="lg:pl-64">
-          <DashboardHeader />
-          <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-            {children}
-          </main>
-        </div>
-
-        <WalkInSlideOver />
+        {children}
+        <AppointmentSlideOver />
       </div>
     </DashboardProvider>
   );

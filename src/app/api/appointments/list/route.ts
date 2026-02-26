@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
+import type {
+  AppointmentStatus,
+  AppointmentType,
+} from "@/generated/prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -29,60 +32,73 @@ export async function GET(request: NextRequest) {
     // Query params
     const { searchParams } = request.nextUrl;
     const q = searchParams.get("q")?.trim() ?? "";
+    const statusFilter = searchParams.get("status") ?? "";
+    const typeFilter = searchParams.get("type") ?? "";
     const sortBy = searchParams.get("sortBy") ?? "createdAt";
-    const sortOrder = searchParams.get("sortOrder") === "asc" ? "ASC" : "DESC";
+    const sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
 
-    // Whitelist sortable columns to prevent SQL injection
-    const allowedSortColumns: Record<string, string> = {
-      createdAt: '"createdAt"',
-      name: '"name"',
-      phone: '"phone"',
-      patientId: '"patientId"',
-      preferredDateTime: '"preferredDateTime"',
-      isComplete: '"isComplete"',
+    // Whitelist sortable columns
+    const allowedSortColumns: Record<string, Record<string, string>> = {
+      createdAt: { createdAt: sortOrder },
+      preferredDateTime: { preferredDateTime: sortOrder },
+      status: { status: sortOrder },
+      type: { type: sortOrder },
     };
 
-    const sortColumn = allowedSortColumns[sortBy] ?? '"createdAt"';
-    const orderByClause = Prisma.raw(`${sortColumn} ${sortOrder}`);
+    const orderBy = allowedSortColumns[sortBy] ?? { createdAt: sortOrder };
 
-    // Build query with window function for phone grouping
-    let patients;
-    if (q) {
-      const searchPattern = `%${q}%`;
-      patients = await prisma.$queryRaw`
-        SELECT *,
-          COUNT(*) OVER (PARTITION BY phone)::int AS "phoneCount"
-        FROM patients
-        WHERE name ILIKE ${searchPattern}
-          OR phone ILIKE ${searchPattern}
-          OR "patientId" ILIKE ${searchPattern}
-        ORDER BY ${orderByClause}
-      `;
-    } else {
-      patients = await prisma.$queryRaw`
-        SELECT *,
-          COUNT(*) OVER (PARTITION BY phone)::int AS "phoneCount"
-        FROM patients
-        ORDER BY ${orderByClause}
-      `;
+    // Build where clause
+    const where: Record<string, unknown> = {};
+
+    if (statusFilter) {
+      where.status = statusFilter as AppointmentStatus;
     }
 
-    // Serialize dates to ISO strings
-    const serialized = (patients as Record<string, unknown>[]).map((p) => ({
-      ...p,
-      createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : p.createdAt,
-      updatedAt: p.updatedAt instanceof Date ? p.updatedAt.toISOString() : p.updatedAt,
-      preferredDateTime:
-        p.preferredDateTime instanceof Date
-          ? p.preferredDateTime.toISOString()
-          : p.preferredDateTime,
-      dateOfBirth:
-        p.dateOfBirth instanceof Date
-          ? p.dateOfBirth.toISOString()
-          : p.dateOfBirth,
+    if (typeFilter) {
+      where.type = typeFilter as AppointmentType;
+    }
+
+    if (q) {
+      where.OR = [
+        { patient: { name: { contains: q, mode: "insensitive" } } },
+        { patient: { phone: { contains: q } } },
+        { patient: { patientId: { contains: q, mode: "insensitive" } } },
+      ];
+    }
+
+    const appointments = await prisma.appointment.findMany({
+      where,
+      include: {
+        patient: true,
+        prescription: true,
+      },
+      orderBy,
+    });
+
+    // Serialize dates
+    const serialized = appointments.map((a) => ({
+      ...a,
+      createdAt: a.createdAt.toISOString(),
+      updatedAt: a.updatedAt.toISOString(),
+      preferredDateTime: a.preferredDateTime.toISOString(),
+      patient: {
+        ...a.patient,
+        createdAt: a.patient.createdAt.toISOString(),
+        updatedAt: a.patient.updatedAt.toISOString(),
+        dateOfBirth: a.patient.dateOfBirth?.toISOString() ?? null,
+      },
+      prescription: a.prescription
+        ? {
+            ...a.prescription,
+            createdAt: a.prescription.createdAt.toISOString(),
+            updatedAt: a.prescription.updatedAt.toISOString(),
+            nextVisitDate:
+              a.prescription.nextVisitDate?.toISOString() ?? null,
+          }
+        : null,
     }));
 
-    return NextResponse.json({ success: true, patients: serialized });
+    return NextResponse.json({ success: true, appointments: serialized });
   } catch (error) {
     console.error("GET /api/appointments/list error:", error);
     return NextResponse.json(

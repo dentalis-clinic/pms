@@ -1,10 +1,12 @@
-import type { SubmissionSource } from "@/generated/prisma/client";
+import type {
+  SubmissionSource,
+  AppointmentType,
+  AppointmentStatus,
+  Sex,
+} from "@/generated/prisma/client";
 
-/**
- * Patient row as returned by the list API.
- * Dates are ISO strings (JSON-serialized from the server).
- * Includes `phoneCount` from the SQL window function.
- */
+// --- Patient (person) ---
+
 export interface PatientRow {
   id: string;
   patientId: string;
@@ -12,12 +14,59 @@ export interface PatientRow {
   phone: string;
   email: string | null;
   dateOfBirth: string | null;
+  sex: Sex | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PatientMatch {
+  id: string;
+  patientId: string;
+  name: string;
+  sex: Sex | null;
+  email: string | null;
+  dateOfBirth: string | null;
+  lastVisitDate: string | null;
+}
+
+// --- Appointment (visit) ---
+
+export interface AppointmentRow {
+  id: string;
+  patientId: string;
+  type: AppointmentType;
+  status: AppointmentStatus;
   preferredDateTime: string;
   reasonForVisit: string | null;
   submittedBy: SubmissionSource;
   adminUserId: string | null;
-  isComplete: boolean;
+  notes: string | null;
   createdAt: string;
   updatedAt: string;
-  phoneCount: number;
+  // Joined
+  patient: PatientRow;
+  prescription?: PrescriptionRow | null;
+}
+
+// --- Prescription ---
+
+export interface Medication {
+  drugName: string;
+  dosage: string;
+  frequency: string;
+  duration: string;
+}
+
+export interface PrescriptionRow {
+  id: string;
+  prescriptionId: string;
+  appointmentId: string;
+  diagnosis: string;
+  medications: Medication[];
+  treatmentPlan: string | null;
+  nextVisitDate: string | null;
+  advice: string | null;
+  prescribedById: string;
+  createdAt: string;
+  updatedAt: string;
 }

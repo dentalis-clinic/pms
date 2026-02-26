@@ -1,10 +1,10 @@
 import { ReactNode } from "react";
 
 const variantStyles = {
-  error: "bg-error-50 text-error-600",
-  success: "bg-success-50 text-success-700",
-  warning: "bg-warning-50 text-warning-700",
-  info: "bg-info-50 text-info-700",
+  error: "bg-surface-error text-text-error",
+  success: "bg-surface-success text-text-success",
+  warning: "bg-surface-warning text-text-warning",
+  info: "bg-surface-info text-text-info",
 } as const;
 
 interface AlertProps {

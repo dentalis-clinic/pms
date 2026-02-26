@@ -4,17 +4,17 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import {
   publicBookingSchema,
-  fullPatientSchema,
+  walkInSchema,
 } from "@/lib/validations/appointment";
 import { normalizePhoneNumber } from "@/lib/utils/phone";
-import { createPatientWithId } from "@/lib/utils/patient-id";
+import { findOrCreatePatient } from "@/lib/utils/patient-id";
 import { checkRateLimit } from "@/lib/utils/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Detect submission type: check Supabase session
+    // Detect submission type via Supabase session
     const supabase = await createClient();
     const {
       data: { user },
@@ -33,8 +33,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error:
-              "Too many submissions. Please try again later.",
+            error: "Too many submissions. Please try again later.",
           },
           {
             status: 429,
@@ -45,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate with appropriate schema
-    const schema = isAdminSubmission ? fullPatientSchema : publicBookingSchema;
+    const schema = isAdminSubmission ? walkInSchema : publicBookingSchema;
     const parsed = schema.safeParse(body);
 
     if (!parsed.success) {
@@ -71,68 +70,67 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Duplicate detection: same phone + name within 5 minutes
+    // Duplicate detection: same phone + name with appointment in last 5 minutes
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-    const duplicate = await prisma.patient.findFirst({
+    const recentAppointment = await prisma.appointment.findFirst({
       where: {
-        phone: normalizedPhone,
-        name: { equals: data.name, mode: "insensitive" },
         createdAt: { gte: fiveMinutesAgo },
+        patient: {
+          phone: normalizedPhone,
+          name: { equals: data.name, mode: "insensitive" },
+        },
       },
+      include: { patient: true },
     });
 
-    if (duplicate) {
+    if (recentAppointment) {
       return NextResponse.json(
         {
           success: false,
           error:
             "A booking with this name and phone was submitted recently. Please wait a few minutes before trying again.",
-          patientId: duplicate.patientId,
+          patientId: recentAppointment.patient.patientId,
         },
         { status: 409 }
       );
     }
 
-    // Build patient data
-    const patientData: Record<string, unknown> = {
-      name: data.name,
-      phone: normalizedPhone,
-      preferredDateTime: data.preferredDateTime,
-      submittedBy: isAdminSubmission ? "ADMIN" : "PATIENT",
-      isComplete: false,
+    // Find or create patient
+    const fullData = data as typeof data & {
+      email?: string;
+      dateOfBirth?: Date;
+      reasonForVisit?: string;
     };
 
-    if (isAdminSubmission) {
-      patientData.adminUserId = user.id;
-      // fullPatientSchema data has additional fields
-      const fullData = data as typeof data & {
-        email?: string;
-        dateOfBirth?: Date;
-        reasonForVisit?: string;
-      };
-      if (fullData.email) patientData.email = fullData.email;
-      if (fullData.dateOfBirth) patientData.dateOfBirth = fullData.dateOfBirth;
-      if (fullData.reasonForVisit)
-        patientData.reasonForVisit = fullData.reasonForVisit;
+    const { patientId, patient } = await findOrCreatePatient(prisma, {
+      name: data.name,
+      phone: normalizedPhone,
+      email: fullData.email || null,
+      dateOfBirth: fullData.dateOfBirth || null,
+    });
 
-      // Mark complete if all optional fields are filled
-      patientData.isComplete = !!(
-        fullData.email &&
-        fullData.dateOfBirth &&
-        fullData.reasonForVisit
-      );
-    }
-
-    // Create patient with generated ID
-    const { patientId } = await createPatientWithId(prisma, patientData);
+    // Create appointment
+    const appointment = await prisma.appointment.create({
+      data: {
+        patientId: patient.id,
+        type: isAdminSubmission ? "WALK_IN" : "PATIENT_BOOKING",
+        status: "TENTATIVE",
+        preferredDateTime: data.preferredDateTime,
+        reasonForVisit: fullData.reasonForVisit || null,
+        submittedBy: isAdminSubmission ? "ADMIN" : "PATIENT",
+        adminUserId: isAdminSubmission ? user!.id : null,
+      },
+    });
 
     return NextResponse.json(
       {
         success: true,
         patientId,
+        appointmentId: appointment.id,
+        preferredDateTime: appointment.preferredDateTime.toISOString(),
         message: isAdminSubmission
-          ? "Patient record created successfully."
-          : "Appointment request submitted! Please save your Patient ID.",
+          ? "Walk-in appointment created."
+          : "Your appointment has been tentatively booked.",
       },
       { status: 201 }
     );

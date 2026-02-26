@@ -56,13 +56,13 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-md space-y-4">
-      <h2 className="text-lg font-semibold text-neutral-950">
+      <h2 className="text-lg font-semibold text-text-primary">
         Add Admin User
       </h2>
 
       <form
         onSubmit={handleCreateAdmin}
-        className="space-y-4 rounded-lg border border-neutral-200 bg-surface-primary p-6 shadow-sm"
+        className="space-y-4 rounded-lg border border-border-primary bg-surface-primary p-6 shadow-sm"
       >
         {formState.status === "error" && (
           <Alert variant="error">{formState.message}</Alert>

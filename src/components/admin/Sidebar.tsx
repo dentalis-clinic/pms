@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -73,7 +74,7 @@ export default function Sidebar({ adminInfo }: { adminInfo: AdminInfo }) {
     <div className="flex h-full flex-col">
       {/* Brand */}
       <div className="flex h-14 items-center px-4">
-        <span className="text-lg font-semibold text-brand-950">DentalisPMS</span>
+        <Image src="/logo.png" alt="DentalisPMS Logo" width={140} height={40} className="h-10 w-auto" priority />
       </div>
 
       {/* Nav items */}
@@ -85,8 +86,8 @@ export default function Sidebar({ adminInfo }: { adminInfo: AdminInfo }) {
               key={item.href}
               href={item.href}
               className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${active
-                ? "bg-brand-50 text-brand-700"
-                : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900"
+                ? "bg-surface-brand text-text-brand"
+                : "text-text-secondary hover:bg-surface-secondary hover:text-text-primary"
                 }`}
             >
               {item.icon}
@@ -97,22 +98,22 @@ export default function Sidebar({ adminInfo }: { adminInfo: AdminInfo }) {
       </nav>
 
       {/* My Account */}
-      <div className="border-t border-neutral-200 p-4">
+      <div className="border-t border-border-primary p-4">
         <button
           onClick={() => setShowAccountMenu(!showAccountMenu)}
-          className="flex w-full items-center gap-3 rounded-md p-1 text-left transition-colors hover:bg-neutral-50"
+          className="flex w-full items-center gap-3 rounded-md p-1 text-left transition-colors hover:bg-surface-secondary"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-medium text-brand-700">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-brand-subtle text-sm font-medium text-text-brand">
             {initials}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <p className="truncate text-sm font-medium text-neutral-950">{adminInfo.name}</p>
-              <span className="shrink-0 rounded bg-brand-50 px-1.5 py-0 text-[10px] font-medium text-brand-700">
+              <p className="truncate text-sm font-medium text-text-primary">{adminInfo.name}</p>
+              <span className="shrink-0 rounded bg-surface-brand-subtle px-1.5 py-0 text-[10px] font-medium text-text-brand">
                 Admin
               </span>
             </div>
-            <p className="truncate text-xs text-neutral-500">{adminInfo.email}</p>
+            <p className="truncate text-xs text-text-hint">{adminInfo.email}</p>
           </div>
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -122,7 +123,7 @@ export default function Sidebar({ adminInfo }: { adminInfo: AdminInfo }) {
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={`h-4 w-4 text-neutral-400 transition-transform ${showAccountMenu ? "rotate-180" : ""}`}
+            className={`h-4 w-4 text-text-tertiary transition-transform ${showAccountMenu ? "rotate-180" : ""}`}
           >
             <polyline points="6 9 12 15 18 9" />
           </svg>
@@ -133,7 +134,7 @@ export default function Sidebar({ adminInfo }: { adminInfo: AdminInfo }) {
             <button
               type="button"
               onClick={handleSignOut}
-              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-medium text-neutral-500 hover:bg-neutral-50 hover:text-neutral-700"
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-medium text-text-hint hover:bg-surface-error hover:text-text-error"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -151,7 +152,7 @@ export default function Sidebar({ adminInfo }: { adminInfo: AdminInfo }) {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col lg:border-r lg:border-neutral-200 lg:bg-surface-primary">
+      <aside className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col lg:border-r lg:border-border-primary lg:bg-surface-primary">
         {sidebarContent}
       </aside>
 
@@ -159,9 +160,9 @@ export default function Sidebar({ adminInfo }: { adminInfo: AdminInfo }) {
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           {/* Backdrop */}
-          <div className="fixed inset-0 bg-brand-950/30" onClick={closeSidebar} />
+          <div className="fixed inset-0 bg-surface-overlay/30" onClick={closeSidebar} />
           {/* Sidebar panel */}
-          <aside className="fixed inset-y-0 left-0 z-50 w-64 border-r border-neutral-200 bg-surface-primary">
+          <aside className="fixed inset-y-0 left-0 z-50 w-64 border-r border-border-primary bg-surface-primary">
             {sidebarContent}
           </aside>
         </div>

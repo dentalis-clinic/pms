@@ -2,13 +2,13 @@ import { ButtonHTMLAttributes } from "react";
 
 const variantStyles = {
   primary:
-    "bg-brand-600 text-neutral-0 hover:bg-brand-700 focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:outline-none",
+    "bg-interactive-primary text-text-inverse hover:bg-interactive-primary-hover focus:ring-2 focus:ring-focus-ring focus:ring-offset-2 focus:outline-none",
   secondary:
-    "border border-neutral-300 bg-neutral-0 text-neutral-700 hover:bg-neutral-50",
+    "border border-border-secondary bg-surface-primary text-text-secondary hover:bg-surface-secondary hover:text-text-primary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2 focus:outline-none",
   ghost:
-    "text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100",
+    "text-text-hint hover:text-text-brand hover:bg-surface-tertiary focus:ring-2 focus:ring-focus-ring focus:ring-offset-2 focus:outline-none",
   success:
-    "border border-success-500/30 bg-neutral-0 text-success-700 hover:bg-success-50",
+    "border border-border-success/30 bg-surface-primary text-text-success hover:bg-surface-success focus:ring-2 focus:ring-focus-ring focus:ring-offset-2 focus:outline-none",
 } as const;
 
 const sizeStyles = {

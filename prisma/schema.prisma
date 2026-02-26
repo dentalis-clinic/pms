@@ -7,42 +7,109 @@ datasource db {
   provider = "postgresql"
 }
 
+// --- Enums ---
+
 enum SubmissionSource {
   PATIENT
   ADMIN
 }
 
-model Patient {
-  id                String           @id @default(uuid())
-  patientId         String           @unique // DDCJ-YYYYMMDD-XXXX
-  name              String
-  phone             String           // 10-digit Indian mobile, normalized
-  email             String?          // Nullable: filled by admin later for public submissions
-  dateOfBirth       DateTime?        @db.Date // Nullable: filled by admin later
-  preferredDateTime DateTime
-  reasonForVisit    String?          @db.Text // Nullable: filled by admin later
-  submittedBy       SubmissionSource
-  adminUserId       String?
-  isComplete        Boolean          @default(false)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+enum AppointmentType {
+  PATIENT_BOOKING
+  WALK_IN
+  FOLLOW_UP
+}
 
-  admin Admin? @relation(fields: [adminUserId], references: [id])
+enum AppointmentStatus {
+  TENTATIVE
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum Sex {
+  MALE
+  FEMALE
+  OTHER
+}
+
+// --- Models ---
+
+/// Permanent person record. One patient = one DDCJ ID, many appointments.
+model Patient {
+  id          String    @id @default(uuid())
+  patientId   String    @unique // DDCJ-YYYYMMDD-XXXX (generated once, permanent)
+  name        String
+  phone       String    // 10-digit Indian mobile, normalized
+  email       String?
+  dateOfBirth DateTime? @db.Date
+  sex         Sex?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  appointments Appointment[]
 
   @@index([phone])
-  @@index([createdAt])
   @@index([patientId])
   @@map("patients")
 }
 
+/// Visit/booking event linked to a patient.
+model Appointment {
+  id                String            @id @default(uuid())
+  patientId         String
+  type              AppointmentType
+  status            AppointmentStatus @default(TENTATIVE)
+  preferredDateTime DateTime
+  reasonForVisit    String?           @db.Text
+  submittedBy       SubmissionSource
+  adminUserId       String?
+  notes             String?           @db.Text
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  admin        Admin?        @relation("appointmentAdmin", fields: [adminUserId], references: [id])
+  prescription Prescription?
+
+  @@index([patientId])
+  @@index([status])
+  @@index([preferredDateTime])
+  @@index([createdAt])
+  @@map("appointments")
+}
+
+/// Treatment record. One per appointment. Prescription generation confirms the appointment.
+model Prescription {
+  id             String    @id @default(uuid())
+  prescriptionId String    @unique // RX-YYYYMMDD-XXXX
+  appointmentId  String    @unique // 1:1 with appointment
+  diagnosis      String    @db.Text
+  medications    Json      // [{drugName, dosage, frequency, duration}]
+  treatmentPlan  String?   @db.Text
+  nextVisitDate  DateTime? @db.Date
+  advice         String?   @db.Text
+  prescribedById String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  appointment  Appointment @relation(fields: [appointmentId], references: [id])
+  prescribedBy Admin       @relation("prescriber", fields: [prescribedById], references: [id])
+
+  @@index([prescriptionId])
+  @@map("prescriptions")
+}
+
+/// Admin/Doctor user. ID matches Supabase auth.users.id.
 model Admin {
-  id        String   @id // Matches Supabase auth.users.id (UUID)
+  id        String   @id // From Supabase auth.users (shared UUID)
   email     String   @unique
   name      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  patients Patient[]
+  appointments  Appointment[]  @relation("appointmentAdmin")
+  prescriptions Prescription[] @relation("prescriber")
 
   @@map("admins")
 }

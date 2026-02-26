@@ -3,11 +3,11 @@
 import { parse } from "json2csv";
 import { DateTime } from "luxon";
 import { formatISTDateTime, formatISTDate } from "@/lib/utils/date";
-import type { PatientRow } from "@/types/patient";
+import type { AppointmentRow } from "@/types/patient";
 import { Button } from "@/components/ui";
 
 interface CSVExportButtonProps {
-  patients: PatientRow[];
+  appointments: AppointmentRow[];
 }
 
 const CSV_FIELDS = [
@@ -15,40 +15,44 @@ const CSV_FIELDS = [
   { label: "Name", value: "name" },
   { label: "Phone", value: "phone" },
   { label: "Email", value: "email" },
-  { label: "Date of Birth", value: "dateOfBirth" },
-  { label: "Preferred Date/Time", value: "preferredDateTime" },
+  { label: "DOB", value: "dateOfBirth" },
+  { label: "Type", value: "type" },
+  { label: "Status", value: "status" },
+  { label: "Scheduled Date/Time", value: "preferredDateTime" },
   { label: "Reason for Visit", value: "reasonForVisit" },
   { label: "Submitted By", value: "submittedBy" },
-  { label: "Complete", value: "isComplete" },
   { label: "Created At", value: "createdAt" },
 ];
 
-export default function CSVExportButton({ patients }: CSVExportButtonProps) {
+export default function CSVExportButton({ appointments }: CSVExportButtonProps) {
   function handleExport() {
-    // Format dates for CSV using IST
-    const formatted = patients.map((p) => ({
-      ...p,
-      preferredDateTime: formatISTDateTime(new Date(p.preferredDateTime)),
-      createdAt: formatISTDateTime(new Date(p.createdAt)),
-      dateOfBirth: p.dateOfBirth
-        ? formatISTDate(new Date(p.dateOfBirth))
+    const formatted = appointments.map((a) => ({
+      patientId: a.patient.patientId,
+      name: a.patient.name,
+      phone: a.patient.phone,
+      email: a.patient.email ?? "",
+      dateOfBirth: a.patient.dateOfBirth
+        ? formatISTDate(new Date(a.patient.dateOfBirth))
         : "",
-      email: p.email ?? "",
-      reasonForVisit: p.reasonForVisit ?? "",
-      isComplete: p.isComplete ? "Yes" : "No",
+      type: a.type,
+      status: a.status,
+      preferredDateTime: formatISTDateTime(new Date(a.preferredDateTime)),
+      reasonForVisit: a.reasonForVisit ?? "",
+      submittedBy: a.submittedBy,
+      createdAt: formatISTDateTime(new Date(a.createdAt)),
     }));
 
     const csv = parse(formatted, { fields: CSV_FIELDS });
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const anchor = document.createElement("a");
     const dateStr = DateTime.now()
       .setZone("Asia/Kolkata")
       .toFormat("yyyyMMdd");
-    a.href = url;
-    a.download = `patients-${dateStr}.csv`;
-    a.click();
+    anchor.href = url;
+    anchor.download = `appointments-${dateStr}.csv`;
+    anchor.click();
     URL.revokeObjectURL(url);
   }
 
@@ -57,7 +61,7 @@ export default function CSVExportButton({ patients }: CSVExportButtonProps) {
       variant="secondary"
       size="sm"
       onClick={handleExport}
-      disabled={patients.length === 0}
+      disabled={appointments.length === 0}
     >
       Export CSV
     </Button>

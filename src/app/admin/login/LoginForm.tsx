@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
+import Image from "next/image";
 import { Button, Input, FormField, Alert } from "@/components/ui";
 
 export default function LoginForm() {
@@ -42,17 +43,17 @@ export default function LoginForm() {
     <div className="flex min-h-screen items-center justify-center bg-surface-secondary px-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          <h1 className="text-heading-2 text-brand-950">
-            DentalisPMS
-          </h1>
-          <p className="mt-1 text-body-sm text-neutral-500">
+          <div className="flex justify-center mb-6">
+            <Image src="/logo.png" alt="DentalisPMS Logo" width={180} height={50} className="h-12 w-auto" priority />
+          </div>
+          <p className="mt-1 text-body-sm text-text-hint">
             Admin sign-in
           </p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 rounded-lg border border-neutral-200 bg-surface-primary p-6 shadow-sm"
+          className="space-y-4 rounded-lg border border-border-primary bg-surface-primary p-6 shadow-sm"
         >
           {error && <Alert variant="error">{error}</Alert>}
 

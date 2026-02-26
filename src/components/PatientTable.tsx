@@ -1,62 +1,201 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { formatISTDateTime, formatISTDate } from "@/lib/utils/date";
-import type { PatientRow } from "@/types/patient";
-import CompleteRecordForm from "./CompleteRecordForm";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { formatISTDateTime } from "@/lib/utils/date";
+import type { AppointmentRow } from "@/types/patient";
+import type { AppointmentStatus, AppointmentType } from "@/generated/prisma/client";
 import { Input, Badge } from "@/components/ui";
 
 interface PatientTableProps {
-  patients: PatientRow[];
+  appointments: AppointmentRow[];
   onRefresh: () => void;
   highlightId?: string;
+  onConfirmAppointment: (appointment: AppointmentRow) => void;
 }
 
-type SortKey =
-  | "patientId"
-  | "name"
-  | "phone"
-  | "preferredDateTime"
-  | "createdAt"
-  | "isComplete";
+type SortKey = "patientId" | "name" | "preferredDateTime" | "createdAt" | "status";
+
+const STATUS_BADGE: Record<AppointmentStatus, { variant: "warning" | "info" | "success" | "error"; label: string }> = {
+  TENTATIVE: { variant: "warning", label: "Tentative" },
+  CONFIRMED: { variant: "info", label: "Confirmed" },
+  COMPLETED: { variant: "success", label: "Completed" },
+  CANCELLED: { variant: "error", label: "Cancelled" },
+};
+
+const TYPE_LABEL: Record<AppointmentType, string> = {
+  PATIENT_BOOKING: "Booking",
+  WALK_IN: "Walk-in",
+  FOLLOW_UP: "Follow-up",
+};
+
+// --- Kebab Menu ---
+
+function KebabMenu({
+  appointmentId,
+  status,
+  onRefresh,
+}: {
+  appointmentId: string;
+  status: AppointmentStatus;
+  onRefresh: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+
+  const canCancel = status === "TENTATIVE" || status === "CONFIRMED";
+
+  // Close on click outside
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+        setConfirming(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  const handleCancel = useCallback(async () => {
+    setCancelling(true);
+    try {
+      const res = await fetch(`/api/appointments/${appointmentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "CANCELLED" }),
+      });
+      if (res.ok) {
+        onRefresh();
+      }
+    } catch {
+      // silently fail, user can retry
+    } finally {
+      setCancelling(false);
+      setOpen(false);
+      setConfirming(false);
+    }
+  }, [appointmentId, onRefresh]);
+
+  function toggleMenu() {
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuPos({ top: rect.bottom + 4, left: rect.right - 176 }); // 176 = w-44 (11rem)
+    }
+    setOpen(!open);
+    setConfirming(false);
+  }
+
+  if (!canCancel) return null;
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={toggleMenu}
+        className="rounded p-1 text-text-tertiary hover:bg-surface-tertiary hover:text-text-secondary"
+        aria-label="More actions"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          className="h-4 w-4"
+        >
+          <path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          ref={menuRef}
+          className="fixed z-50 w-44 rounded-md border border-border-primary bg-surface-primary shadow-lg"
+          style={{ top: menuPos.top, left: menuPos.left }}
+        >
+          {!confirming ? (
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              className="w-full px-3 py-2 text-left text-sm text-text-error hover:bg-surface-error/50"
+            >
+              Cancel Appointment
+            </button>
+          ) : (
+            <div className="p-3 space-y-2">
+              <p className="text-xs text-text-secondary">
+                Are you sure? This cannot be undone.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={cancelling}
+                  className="flex-1 rounded bg-interactive-error px-2 py-1 text-xs text-text-inverse hover:bg-interactive-error-hover disabled:opacity-50"
+                >
+                  {cancelling ? "..." : "Yes, Cancel"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirming(false);
+                    setOpen(false);
+                  }}
+                  className="flex-1 rounded border border-border-secondary px-2 py-1 text-xs text-text-secondary hover:bg-surface-secondary"
+                >
+                  No
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+// --- Main Table ---
 
 export default function PatientTable({
-  patients,
+  appointments,
   onRefresh,
   highlightId,
+  onConfirmAppointment,
 }: PatientTableProps) {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortAsc, setSortAsc] = useState(false);
-  const [expandedPhones, setExpandedPhones] = useState<Set<string>>(new Set());
-  const [editingPatient, setEditingPatient] = useState<PatientRow | null>(null);
 
-  // Filter by search
   const filtered = useMemo(() => {
-    if (!search.trim()) return patients;
+    if (!search.trim()) return appointments;
     const q = search.toLowerCase();
-    return patients.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.phone.includes(q) ||
-        p.patientId.toLowerCase().includes(q)
+    return appointments.filter(
+      (a) =>
+        a.patient.name.toLowerCase().includes(q) ||
+        a.patient.phone.includes(q) ||
+        a.patient.patientId.toLowerCase().includes(q)
     );
-  }, [patients, search]);
+  }, [appointments, search]);
 
-  // Sort
   const sorted = useMemo(() => {
     const arr = [...filtered];
     arr.sort((a, b) => {
       let cmp = 0;
       switch (sortKey) {
         case "patientId":
-          cmp = a.patientId.localeCompare(b.patientId);
+          cmp = a.patient.patientId.localeCompare(b.patient.patientId);
           break;
         case "name":
-          cmp = a.name.localeCompare(b.name);
-          break;
-        case "phone":
-          cmp = a.phone.localeCompare(b.phone);
+          cmp = a.patient.name.localeCompare(b.patient.name);
           break;
         case "preferredDateTime":
           cmp = a.preferredDateTime.localeCompare(b.preferredDateTime);
@@ -64,57 +203,14 @@ export default function PatientTable({
         case "createdAt":
           cmp = a.createdAt.localeCompare(b.createdAt);
           break;
-        case "isComplete":
-          cmp = Number(a.isComplete) - Number(b.isComplete);
+        case "status":
+          cmp = a.status.localeCompare(b.status);
           break;
       }
       return sortAsc ? cmp : -cmp;
     });
     return arr;
   }, [filtered, sortKey, sortAsc]);
-
-  // Group by phone for display
-  const { displayRows, phoneGroups } = useMemo(() => {
-    const groups = new Map<string, PatientRow[]>();
-    for (const p of sorted) {
-      if (p.phoneCount > 1) {
-        const existing = groups.get(p.phone) ?? [];
-        existing.push(p);
-        groups.set(p.phone, existing);
-      }
-    }
-
-    // Show first record per phone group; expand to show rest if toggled
-    const seen = new Set<string>();
-    const rows: PatientRow[] = [];
-    for (const p of sorted) {
-      if (p.phoneCount <= 1) {
-        rows.push(p);
-      } else if (!seen.has(p.phone)) {
-        seen.add(p.phone);
-        rows.push(p); // primary row
-        if (expandedPhones.has(p.phone)) {
-          const group = groups.get(p.phone) ?? [];
-          for (const g of group) {
-            if (g.id !== p.id) rows.push(g);
-          }
-        }
-      } else if (expandedPhones.has(p.phone)) {
-        // Already added via expansion
-      }
-    }
-
-    return { displayRows: rows, phoneGroups: groups };
-  }, [sorted, expandedPhones]);
-
-  function togglePhone(phone: string) {
-    setExpandedPhones((prev) => {
-      const next = new Set(prev);
-      if (next.has(phone)) next.delete(phone);
-      else next.add(phone);
-      return next;
-    });
-  }
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -125,24 +221,17 @@ export default function PatientTable({
     }
   }
 
-  function handleEditSuccess(updated: PatientRow) {
-    setEditingPatient(null);
-    onRefresh();
-    // preserve phoneCount from original since PATCH doesn't return it
-    void updated;
-  }
-
   const sortIndicator = (key: SortKey) =>
     sortKey === key ? (sortAsc ? " \u2191" : " \u2193") : "";
 
   const thClass =
-    "px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider cursor-pointer select-none hover:text-neutral-700";
+    "px-3 py-2 text-left text-xs font-medium text-text-hint uppercase tracking-wider cursor-pointer select-none hover:text-text-brand";
 
-  if (patients.length === 0) {
+  if (appointments.length === 0) {
     return (
-      <div className="rounded-lg border border-neutral-200 bg-surface-primary p-8 text-center">
-        <p className="text-sm text-neutral-500">
-          No patient records yet. Use the Walk-in tab to register a patient or share the public booking link.
+      <div className="rounded-lg border border-border-primary bg-surface-primary p-8 text-center">
+        <p className="text-sm text-text-hint">
+          No appointments yet. Click &quot;New Appointment&quot; to register a patient.
         </p>
       </div>
     );
@@ -150,7 +239,6 @@ export default function PatientTable({
 
   return (
     <div className="space-y-3">
-      {/* Search */}
       <Input
         type="text"
         value={search}
@@ -159,103 +247,99 @@ export default function PatientTable({
         className="max-w-sm"
       />
 
-      {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-neutral-200">
-        <table className="min-w-full divide-y divide-neutral-200">
+      <div className="overflow-x-auto rounded-lg border border-border-primary">
+        <table className="min-w-full divide-y divide-border-primary">
           <thead className="bg-surface-secondary">
             <tr>
               <th className={thClass} onClick={() => handleSort("patientId")}>
-                ID{sortIndicator("patientId")}
+                Patient ID{sortIndicator("patientId")}
               </th>
               <th className={thClass} onClick={() => handleSort("name")}>
                 Name{sortIndicator("name")}
               </th>
-              <th className={thClass} onClick={() => handleSort("phone")}>
-                Phone{sortIndicator("phone")}
+              <th className={thClass}>Phone</th>
+              <th className={thClass}>Type</th>
+              <th className={thClass} onClick={() => handleSort("status")}>
+                Status{sortIndicator("status")}
               </th>
-              <th className={thClass}>Email</th>
-              <th className={thClass}>DOB</th>
               <th className={thClass} onClick={() => handleSort("preferredDateTime")}>
-                Preferred{sortIndicator("preferredDateTime")}
+                Scheduled{sortIndicator("preferredDateTime")}
               </th>
               <th className={thClass}>Reason</th>
               <th className={thClass} onClick={() => handleSort("createdAt")}>
                 Created{sortIndicator("createdAt")}
               </th>
-              <th className={thClass} onClick={() => handleSort("isComplete")}>
-                Status{sortIndicator("isComplete")}
+              <th className="px-3 py-2 text-left text-xs font-medium text-text-hint uppercase tracking-wider">
+                Actions
               </th>
-              <th className="px-3 py-2" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-100 bg-surface-primary">
-            {displayRows.map((p) => {
-              const isHighlighted = highlightId === p.id;
-              const isGrouped = p.phoneCount > 1;
-              const isGroupPrimary = isGrouped && (phoneGroups.get(p.phone)?.[0]?.id === p.id || !expandedPhones.has(p.phone));
+          <tbody className="divide-y divide-border-primary bg-surface-primary">
+            {sorted.map((a) => {
+              const isHighlighted = highlightId === a.id;
+              const statusBadge = STATUS_BADGE[a.status];
 
               return (
                 <tr
-                  key={p.id}
-                  className={`text-sm ${
-                    isHighlighted
-                      ? "animate-pulse bg-warning-50"
-                      : ""
-                  } ${
-                    isGrouped && expandedPhones.has(p.phone) && !isGroupPrimary
-                      ? "bg-surface-secondary"
-                      : ""
-                  }`}
+                  key={a.id}
+                  className={`text-sm ${isHighlighted ? "animate-pulse bg-surface-warning" : ""}`}
                 >
-                  <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-neutral-700">
-                    {p.patientId}
+                  <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-text-brand">
+                    {a.patient.patientId}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-neutral-950">
-                    {p.name}
+                  <td className="whitespace-nowrap px-3 py-2 text-text-primary">
+                    {a.patient.name}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-neutral-600">
-                    {p.phone}
-                    {isGrouped && isGroupPrimary && (
-                      <Badge variant="info" interactive onClick={() => togglePhone(p.phone)} className="ml-1.5">
-                        {p.phoneCount}
-                        <span className="ml-0.5">
-                          {expandedPhones.has(p.phone) ? "\u25B4" : "\u25BE"}
-                        </span>
-                      </Badge>
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-neutral-600">
-                    {p.email ?? <span className="text-neutral-300">&mdash;</span>}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-neutral-600">
-                    {p.dateOfBirth ? formatISTDate(new Date(p.dateOfBirth)) : <span className="text-neutral-300">&mdash;</span>}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-neutral-600">
-                    {formatISTDateTime(new Date(p.preferredDateTime))}
-                  </td>
-                  <td className="max-w-[200px] truncate px-3 py-2 text-neutral-600" title={p.reasonForVisit ?? undefined}>
-                    {p.reasonForVisit ?? <span className="text-neutral-300">&mdash;</span>}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-neutral-500 text-xs">
-                    {formatISTDateTime(new Date(p.createdAt))}
+                  <td className="whitespace-nowrap px-3 py-2 text-text-secondary">
+                    {a.patient.phone}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2">
-                    {p.isComplete ? (
-                      <Badge variant="success">Complete</Badge>
-                    ) : (
-                      <Badge variant="warning" interactive onClick={() => setEditingPatient(p)}>
-                        Incomplete
-                      </Badge>
-                    )}
+                    <Badge variant="neutral">{TYPE_LABEL[a.type]}</Badge>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2">
-                    <button
-                      type="button"
-                      onClick={() => setEditingPatient(p)}
-                      className="text-xs text-neutral-500 hover:text-neutral-700"
-                    >
-                      Edit
-                    </button>
+                    <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-text-secondary">
+                    {formatISTDateTime(new Date(a.preferredDateTime))}
+                  </td>
+                  <td className="max-w-[200px] truncate px-3 py-2 text-text-secondary" title={a.reasonForVisit ?? undefined}>
+                    {a.reasonForVisit ?? <span className="text-text-tertiary">&mdash;</span>}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-text-hint text-xs">
+                    {formatISTDateTime(new Date(a.createdAt))}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2">
+                    <div className="flex items-center gap-1.5">
+                      {/* TENTATIVE → Confirm button */}
+                      {a.status === "TENTATIVE" && (
+                        <button
+                          type="button"
+                          onClick={() => onConfirmAppointment(a)}
+                          className="rounded bg-interactive-primary px-2.5 py-1 text-xs font-medium text-text-inverse hover:bg-interactive-primary-hover"
+                        >
+                          Confirm
+                        </button>
+                      )}
+
+                      {/* CONFIRMED or COMPLETED → Print Prescription */}
+                      {(a.status === "CONFIRMED" || a.status === "COMPLETED") && (
+                        <a
+                          href={`/admin/dashboard/prescription/blank/${a.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded border border-border-secondary px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-surface-secondary hover:text-text-primary"
+                        >
+                          Print Prescription
+                        </a>
+                      )}
+
+                      {/* Kebab menu for cancellation */}
+                      <KebabMenu
+                        appointmentId={a.id}
+                        status={a.status}
+                        onRefresh={onRefresh}
+                      />
+                    </div>
                   </td>
                 </tr>
               );
@@ -264,19 +348,10 @@ export default function PatientTable({
         </table>
       </div>
 
-      <p className="text-xs text-neutral-400">
-        {filtered.length} record{filtered.length !== 1 ? "s" : ""}
+      <p className="text-xs text-text-tertiary">
+        {filtered.length} appointment{filtered.length !== 1 ? "s" : ""}
         {search && ` matching "${search}"`}
       </p>
-
-      {/* Complete Record Modal */}
-      {editingPatient && (
-        <CompleteRecordForm
-          patient={editingPatient}
-          onClose={() => setEditingPatient(null)}
-          onSuccess={handleEditSuccess}
-        />
-      )}
     </div>
   );
 }

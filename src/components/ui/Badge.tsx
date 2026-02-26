@@ -1,10 +1,12 @@
 import { ReactNode, MouseEventHandler } from "react";
 
 const variantStyles = {
-  success: "bg-success-100 text-success-700",
-  warning: "bg-warning-100 text-warning-700",
-  info: "bg-info-100 text-info-700",
-  brand: "bg-brand-100 text-brand-700",
+  success: "bg-surface-success-subtle text-text-success",
+  warning: "bg-surface-warning-subtle text-text-warning",
+  info: "bg-surface-info-subtle text-text-info",
+  brand: "bg-surface-brand-subtle text-text-brand",
+  error: "bg-surface-error-subtle text-text-error",
+  neutral: "bg-surface-tertiary text-text-secondary",
 } as const;
 
 interface BadgeProps {
