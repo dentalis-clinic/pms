@@ -49,6 +49,9 @@ export async function POST(request: NextRequest) {
 
     const data = parsed.data;
 
+    // Extract allowOverride flag (admin can force double-booking)
+    const allowOverride = body.allowOverride === true;
+
     // Normalize phone
     let normalizedPhone: string;
     try {
@@ -100,6 +103,28 @@ export async function POST(request: NextRequest) {
           where: { id: appointment.patient.id },
           data: patientUpdates,
         });
+      }
+
+      // Check for slot conflicts (exclude current appointment)
+      if (!allowOverride) {
+        const conflict = await prisma.appointment.findFirst({
+          where: {
+            preferredDateTime: data.preferredDateTime,
+            status: { in: ["TENTATIVE", "CONFIRMED", "COMPLETED"] },
+            id: { not: appointment.id }, // Exclude current appointment
+          },
+        });
+
+        if (conflict) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "This time slot is already booked. Please choose another time.",
+              code: "SLOT_CONFLICT",
+            },
+            { status: 409 }
+          );
+        }
       }
 
       // Confirm the appointment
@@ -154,6 +179,27 @@ export async function POST(request: NextRequest) {
       const appointmentType =
         data.visitType === "FOLLOW_UP" ? "FOLLOW_UP" : "WALK_IN";
 
+      // Check for slot conflicts
+      if (!allowOverride) {
+        const conflict = await prisma.appointment.findFirst({
+          where: {
+            preferredDateTime: data.preferredDateTime,
+            status: { in: ["TENTATIVE", "CONFIRMED", "COMPLETED"] },
+          },
+        });
+
+        if (conflict) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "This time slot is already booked. Please choose another time.",
+              code: "SLOT_CONFLICT",
+            },
+            { status: 409 }
+          );
+        }
+      }
+
       const appointment = await prisma.appointment.create({
         data: {
           patientId: patient.id,
@@ -185,6 +231,27 @@ export async function POST(request: NextRequest) {
       dateOfBirth: data.dateOfBirth || null,
       sex: (data.sex as Sex) || null,
     });
+
+    // Check for slot conflicts
+    if (!allowOverride) {
+      const conflict = await prisma.appointment.findFirst({
+        where: {
+          preferredDateTime: data.preferredDateTime,
+          status: { in: ["TENTATIVE", "CONFIRMED", "COMPLETED"] },
+        },
+      });
+
+      if (conflict) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "This time slot is already booked. Please choose another time.",
+            code: "SLOT_CONFLICT",
+          },
+          { status: 409 }
+        );
+      }
+    }
 
     const appointment = await prisma.appointment.create({
       data: {

@@ -70,3 +70,20 @@ export interface PrescriptionRow {
   createdAt: string;
   updatedAt: string;
 }
+
+// --- Phone check (public booking flow) ---
+
+export type PhoneCheckStatus = "new" | "existing" | "has_pending";
+
+export interface MaskedPatient {
+  id: string;
+  maskedName: string;
+  hasPending: boolean;
+  pendingDate: string | null;
+}
+
+export interface PhoneCheckResponse {
+  success: boolean;
+  status: PhoneCheckStatus;
+  patients: MaskedPatient[];
+}

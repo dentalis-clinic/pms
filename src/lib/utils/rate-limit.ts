@@ -12,25 +12,29 @@ interface RateLimitEntry {
  */
 const store = new Map<string, RateLimitEntry>();
 
-export function checkRateLimit(ip: string): {
+export function checkRateLimit(
+  ip: string,
+  options?: { namespace?: string; max?: number }
+): {
   allowed: boolean;
   remaining: number;
 } {
   const now = Date.now();
   const windowMs = env.RATE_LIMIT_WINDOW_MS;
-  const max = env.RATE_LIMIT_MAX;
+  const max = options?.max ?? env.RATE_LIMIT_MAX;
+  const key = options?.namespace ? `${options.namespace}:${ip}` : ip;
 
   // Clean up expired entries
-  for (const [key, entry] of store) {
+  for (const [k, entry] of store) {
     if (now >= entry.resetTime) {
-      store.delete(key);
+      store.delete(k);
     }
   }
 
-  const entry = store.get(ip);
+  const entry = store.get(key);
 
   if (!entry || now >= entry.resetTime) {
-    store.set(ip, { count: 1, resetTime: now + windowMs });
+    store.set(key, { count: 1, resetTime: now + windowMs });
     return { allowed: true, remaining: max - 1 };
   }
 

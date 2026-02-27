@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
+import { DateSlotPicker } from "@/components/ui/DateSlotPicker";
+import type { TimeSlot } from "@/components/ui/DateSlotPicker/types";
 import type { PatientMatch } from "@/types/patient";
 
 export default function AppointmentSlideOver() {
@@ -41,6 +43,10 @@ export default function AppointmentSlideOver() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  // Slot override state (admin only)
+  const [overrideSlot, setOverrideSlot] = useState<TimeSlot | null>(null);
+  const [allowOverride, setAllowOverride] = useState(false);
+
   const isConfirmMode = !!appointment;
 
   // Reset form when slide-over opens/closes or appointment changes
@@ -53,6 +59,8 @@ export default function AppointmentSlideOver() {
     setIsNewPatient(false);
     setLookingUp(false);
     setVisitType("NEW_CONSULTATION");
+    setOverrideSlot(null);
+    setAllowOverride(false);
 
     if (appointment) {
       // Confirm mode — pre-fill from appointment
@@ -204,6 +212,7 @@ export default function AppointmentSlideOver() {
         email: email || undefined,
         preferredDateTime: new Date(preferredDateTime).toISOString(),
         reasonForVisit: reasonForVisit || undefined,
+        allowOverride, // Include override flag for admin double-booking
       };
 
       if (isConfirmMode) {
@@ -441,16 +450,18 @@ export default function AppointmentSlideOver() {
             )}
 
             {/* Preferred Date/Time */}
-            <FormField label="Appointment Date & Time" htmlFor="preferredDateTime">
-              <Input
-                id="preferredDateTime"
-                type="datetime-local"
+            <div>
+              <DateSlotPicker
                 value={preferredDateTime}
-                onChange={(e) => setPreferredDateTime(e.target.value)}
+                onChange={setPreferredDateTime}
                 disabled={submitting}
-                required
+                allowOverride={true}
+                onConflict={(slot) => {
+                  setOverrideSlot(slot);
+                  setAllowOverride(false);
+                }}
               />
-            </FormField>
+            </div>
 
             {/* Chief Complaint */}
             <FormField label="Chief Complaint" htmlFor="reasonForVisit" hint="Optional">
@@ -465,6 +476,48 @@ export default function AppointmentSlideOver() {
               />
             </FormField>
           </fieldset>
+
+          {/* --- Slot Conflict Dialog --- */}
+          {overrideSlot && (
+            <Alert variant="warning">
+              <div className="space-y-3">
+                <p className="text-sm font-medium">
+                  This time slot ({overrideSlot.time}) already has{" "}
+                  {overrideSlot.count} appointment{overrideSlot.count > 1 ? "s" : ""}.
+                </p>
+                <p className="text-sm">
+                  Do you want to double-book this slot?
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setOverrideSlot(null);
+                      setAllowOverride(false);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={() => {
+                      setAllowOverride(true);
+                      setOverrideSlot(null);
+                      // Auto-submit after override is confirmed
+                      const form = document.querySelector("form");
+                      if (form) form.requestSubmit();
+                    }}
+                  >
+                    Yes, Double-book
+                  </Button>
+                </div>
+              </div>
+            </Alert>
+          )}
 
           {/* --- Submit --- */}
           <div className="border-t border-border-primary pt-4">

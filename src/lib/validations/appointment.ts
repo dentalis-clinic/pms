@@ -1,13 +1,30 @@
 import { z } from "zod/v4";
+import { DateTime } from "luxon";
+import {
+  isSlotWithinBusinessHours,
+  isSlotAligned,
+} from "@/lib/utils/time-slots";
+import { BUSINESS_HOURS_CONFIG } from "@/lib/config/business-hours";
 
-// --- Public booking (patient self-service) ---
+// --- Phone check (public progressive form) ---
 
-export const publicBookingSchema = z.object({
+export const phoneCheckSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .min(1, "Phone number is required")
+    .regex(/^\+?[\d\s\-()]+$/, "Invalid phone number format"),
+});
+
+// --- Public booking base fields (shared by public + walk-in) ---
+
+const publicBookingBaseSchema = z.object({
   name: z
     .string()
     .trim()
     .min(1, "Name is required")
-    .max(100, "Name must be 100 characters or less"),
+    .max(100, "Name must be 100 characters or less")
+    .optional(),
   phone: z
     .string()
     .trim()
@@ -25,12 +42,34 @@ export const publicBookingSchema = z.object({
     .refine((date) => {
       const maxDate = new Date(Date.now() + 72 * 60 * 60 * 1000);
       return date <= maxDate;
-    }, "Preferred time must be within the next 3 days"),
+    }, "Preferred time must be within the next 3 days")
+    .refine((date) => {
+      const datetime = DateTime.fromJSDate(date, {
+        zone: BUSINESS_HOURS_CONFIG.timezone,
+      });
+      return isSlotWithinBusinessHours(datetime);
+    }, "Selected time is outside clinic hours (10:00 AM - 2:00 PM, 4:00 PM - 10:00 PM)")
+    .refine((date) => {
+      const datetime = DateTime.fromJSDate(date, {
+        zone: BUSINESS_HOURS_CONFIG.timezone,
+      });
+      return isSlotAligned(datetime);
+    }, "Please select a valid time slot"),
+  existingPatientId: z.string().uuid("Invalid patient ID").optional(),
 });
+
+// --- Public booking (patient self-service) ---
+// Returning patients submit existingPatientId (no name needed).
+// New patients must provide a name.
+
+export const publicBookingSchema = publicBookingBaseSchema.refine(
+  (data) => data.existingPatientId || data.name,
+  { message: "Name is required for new patients", path: ["name"] }
+);
 
 // --- Walk-in registration (admin, full form) ---
 
-export const walkInSchema = publicBookingSchema.extend({
+export const walkInSchema = publicBookingBaseSchema.extend({
   email: z
     .string()
     .trim()
@@ -71,7 +110,19 @@ export const followUpSchema = z.object({
     .refine(
       (date) => date > new Date(),
       "Preferred time must be in the future"
-    ),
+    )
+    .refine((date) => {
+      const datetime = DateTime.fromJSDate(date, {
+        zone: BUSINESS_HOURS_CONFIG.timezone,
+      });
+      return isSlotWithinBusinessHours(datetime);
+    }, "Selected time is outside clinic hours (10:00 AM - 2:00 PM, 4:00 PM - 10:00 PM)")
+    .refine((date) => {
+      const datetime = DateTime.fromJSDate(date, {
+        zone: BUSINESS_HOURS_CONFIG.timezone,
+      });
+      return isSlotAligned(datetime);
+    }, "Please select a valid time slot"),
   reasonForVisit: z
     .string()
     .trim()
@@ -102,6 +153,18 @@ export const patchAppointmentSchema = z.object({
     .string()
     .transform((val) => new Date(val))
     .refine((date) => !isNaN(date.getTime()), "Invalid date format")
+    .refine((date) => {
+      const datetime = DateTime.fromJSDate(date, {
+        zone: BUSINESS_HOURS_CONFIG.timezone,
+      });
+      return isSlotWithinBusinessHours(datetime);
+    }, "Selected time is outside clinic hours (10:00 AM - 2:00 PM, 4:00 PM - 10:00 PM)")
+    .refine((date) => {
+      const datetime = DateTime.fromJSDate(date, {
+        zone: BUSINESS_HOURS_CONFIG.timezone,
+      });
+      return isSlotAligned(datetime);
+    }, "Please select a valid time slot")
     .optional(),
 });
 
@@ -144,7 +207,19 @@ export const confirmAppointmentSchema = z.object({
     .string()
     .min(1, "Preferred date and time is required")
     .transform((val) => new Date(val))
-    .refine((date) => !isNaN(date.getTime()), "Invalid date format"),
+    .refine((date) => !isNaN(date.getTime()), "Invalid date format")
+    .refine((date) => {
+      const datetime = DateTime.fromJSDate(date, {
+        zone: BUSINESS_HOURS_CONFIG.timezone,
+      });
+      return isSlotWithinBusinessHours(datetime);
+    }, "Selected time is outside clinic hours (10:00 AM - 2:00 PM, 4:00 PM - 10:00 PM)")
+    .refine((date) => {
+      const datetime = DateTime.fromJSDate(date, {
+        zone: BUSINESS_HOURS_CONFIG.timezone,
+      });
+      return isSlotAligned(datetime);
+    }, "Please select a valid time slot"),
   reasonForVisit: z
     .string()
     .trim()

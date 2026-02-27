@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import PublicBookingForm from "@/components/PublicBookingForm";
+import PublicBookingForm from "@/components/booking/PublicBookingForm";
 
 export default function Home() {
   return (

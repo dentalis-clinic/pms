@@ -70,44 +70,119 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Duplicate detection: same phone + name with appointment in last 5 minutes
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-    const recentAppointment = await prisma.appointment.findFirst({
-      where: {
-        createdAt: { gte: fiveMinutesAgo },
-        patient: {
-          phone: normalizedPhone,
-          name: { equals: data.name, mode: "insensitive" },
-        },
-      },
-      include: { patient: true },
-    });
-
-    if (recentAppointment) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "A booking with this name and phone was submitted recently. Please wait a few minutes before trying again.",
-          patientId: recentAppointment.patient.patientId,
-        },
-        { status: 409 }
-      );
-    }
-
-    // Find or create patient
+    // Resolve patient: existing (by ID) or find-or-create (by name)
     const fullData = data as typeof data & {
+      existingPatientId?: string;
       email?: string;
       dateOfBirth?: Date;
       reasonForVisit?: string;
     };
 
-    const { patientId, patient } = await findOrCreatePatient(prisma, {
-      name: data.name,
-      phone: normalizedPhone,
-      email: fullData.email || null,
-      dateOfBirth: fullData.dateOfBirth || null,
+    let patientId: string;
+    let patient: { id: string; patientId: string };
+
+    if (fullData.existingPatientId) {
+      // Returning patient selected from masked name list
+      const existing = await prisma.patient.findUnique({
+        where: { id: fullData.existingPatientId },
+        select: { id: true, patientId: true, phone: true },
+      });
+
+      if (!existing || existing.phone !== normalizedPhone) {
+        return NextResponse.json(
+          { success: false, error: "Invalid patient selection." },
+          { status: 400 }
+        );
+      }
+
+      patient = { id: existing.id, patientId: existing.patientId };
+      patientId = existing.patientId;
+
+      // Duplicate detection for existing patient
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const recentAppointment = await prisma.appointment.findFirst({
+        where: {
+          createdAt: { gte: fiveMinutesAgo },
+          patientId: existing.id,
+        },
+      });
+
+      if (recentAppointment) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "A booking was submitted recently for this patient. Please wait a few minutes before trying again.",
+            patientId,
+          },
+          { status: 409 }
+        );
+      }
+    } else {
+      // New patient or name-based matching
+      if (!data.name) {
+        return NextResponse.json(
+          { success: false, error: "Name is required for new patients." },
+          { status: 400 }
+        );
+      }
+
+      // Duplicate detection: same phone + name within 5 minutes
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const recentAppointment = await prisma.appointment.findFirst({
+        where: {
+          createdAt: { gte: fiveMinutesAgo },
+          patient: {
+            phone: normalizedPhone,
+            name: { equals: data.name, mode: "insensitive" },
+          },
+        },
+        include: { patient: true },
+      });
+
+      if (recentAppointment) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "A booking with this name and phone was submitted recently. Please wait a few minutes before trying again.",
+            patientId: recentAppointment.patient.patientId,
+          },
+          { status: 409 }
+        );
+      }
+
+      const result = await findOrCreatePatient(prisma, {
+        name: data.name,
+        phone: normalizedPhone,
+        email: fullData.email || null,
+        dateOfBirth: fullData.dateOfBirth || null,
+      });
+
+      patientId = result.patientId;
+      patient = result.patient;
+    }
+
+    // Check for slot conflicts (prevent double-booking)
+    const conflictingAppointment = await prisma.appointment.findFirst({
+      where: {
+        preferredDateTime: data.preferredDateTime,
+        status: {
+          in: ["TENTATIVE", "CONFIRMED", "COMPLETED"],
+        },
+      },
     });
+
+    if (conflictingAppointment) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "This time slot is already booked. Please choose another time.",
+          code: "SLOT_CONFLICT",
+        },
+        { status: 409 }
+      );
+    }
 
     // Create appointment
     const appointment = await prisma.appointment.create({
