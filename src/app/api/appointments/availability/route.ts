@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DateTime } from "luxon";
 import { prisma } from "@/lib/prisma";
+import { AppointmentStatus } from "@/generated/prisma/client";
 import { generateSlotsForDate } from "@/lib/utils/time-slots";
 import { BUSINESS_HOURS_CONFIG } from "@/lib/config/business-hours";
 
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
 
     const whereClause: {
       preferredDateTime: { gte: Date; lte: Date };
-      status: { in: string[] };
+      status: { in: AppointmentStatus[] };
       id?: { not: string };
     } = {
       preferredDateTime: {
