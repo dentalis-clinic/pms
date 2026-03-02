@@ -1,5 +1,5 @@
-import PatientListView from "@/components/admin/PatientListView";
+import { redirect } from "next/navigation";
 
 export default function HistoryPage() {
-  return <PatientListView filter="all" />;
+  redirect("/admin/dashboard/appointments");
 }

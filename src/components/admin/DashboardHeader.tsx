@@ -5,8 +5,8 @@ import { useDashboard } from "./DashboardContext";
 import { Button } from "@/components/ui";
 
 const pageTitles: Record<string, string> = {
-  "/admin/dashboard/home": "Home",
-  "/admin/dashboard/history": "History",
+  "/admin/dashboard/home": "Dashboard",
+  "/admin/dashboard/appointments": "Appointments",
   "/admin/dashboard/settings": "Settings",
 };
 

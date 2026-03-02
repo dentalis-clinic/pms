@@ -28,9 +28,15 @@ export default async function DashboardLayout({
   }
 
   return (
-    <DashboardProvider>
+    <DashboardProvider adminId={admin.id}>
       <div className="min-h-screen bg-surface-secondary">
-        {children}
+        <Sidebar adminInfo={{ name: admin.name, email: admin.email }} />
+        <div className="lg:pl-64">
+          <DashboardHeader />
+          <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+            {children}
+          </main>
+        </div>
         <AppointmentSlideOver />
       </div>
     </DashboardProvider>

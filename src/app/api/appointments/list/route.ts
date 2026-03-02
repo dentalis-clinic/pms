@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { DateTime } from "luxon";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest) {
     const q = searchParams.get("q")?.trim() ?? "";
     const statusFilter = searchParams.get("status") ?? "";
     const typeFilter = searchParams.get("type") ?? "";
+    const dateFilter = searchParams.get("dateFilter") ?? "all";
     const sortBy = searchParams.get("sortBy") ?? "createdAt";
     const sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
 
@@ -49,6 +51,21 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const where: Record<string, unknown> = {};
+
+    // Server-side date filtering
+    if (dateFilter === "today" || dateFilter === "upcoming") {
+      const now = DateTime.now().setZone("Asia/Kolkata");
+      const todayStart = now.startOf("day").toJSDate();
+      const tomorrowStart = now.plus({ days: 1 }).startOf("day").toJSDate();
+
+      if (dateFilter === "today") {
+        where.preferredDateTime = { gte: todayStart, lt: tomorrowStart };
+      } else {
+        // upcoming = tomorrow onward, non-cancelled
+        where.preferredDateTime = { gte: tomorrowStart };
+        where.status = { not: "CANCELLED" as AppointmentStatus };
+      }
+    }
 
     if (statusFilter) {
       where.status = statusFilter as AppointmentStatus;

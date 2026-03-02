@@ -3,8 +3,9 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { formatISTDateTime } from "@/lib/utils/date";
 import type { AppointmentRow } from "@/types/patient";
-import type { AppointmentStatus, AppointmentType } from "@/generated/prisma/client";
+import type { AppointmentStatus } from "@/generated/prisma/client";
 import { Input, Badge } from "@/components/ui";
+import { STATUS_BADGE, TYPE_LABEL } from "@/lib/constants/appointment";
 
 interface PatientTableProps {
   appointments: AppointmentRow[];
@@ -14,19 +15,6 @@ interface PatientTableProps {
 }
 
 type SortKey = "patientId" | "name" | "preferredDateTime" | "createdAt" | "status";
-
-const STATUS_BADGE: Record<AppointmentStatus, { variant: "warning" | "info" | "success" | "error"; label: string }> = {
-  TENTATIVE: { variant: "warning", label: "Tentative" },
-  CONFIRMED: { variant: "info", label: "Confirmed" },
-  COMPLETED: { variant: "success", label: "Completed" },
-  CANCELLED: { variant: "error", label: "Cancelled" },
-};
-
-const TYPE_LABEL: Record<AppointmentType, string> = {
-  PATIENT_BOOKING: "Booking",
-  WALK_IN: "Walk-in",
-  FOLLOW_UP: "Follow-up",
-};
 
 // --- Kebab Menu ---
 

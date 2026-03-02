@@ -1,5 +1,5 @@
-import PatientListView from "@/components/admin/PatientListView";
+import DashboardHome from "@/components/admin/DashboardHome";
 
 export default function HomePage() {
-  return <PatientListView filter="today" />;
+  return <DashboardHome />;
 }

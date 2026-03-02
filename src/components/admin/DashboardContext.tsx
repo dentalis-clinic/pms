@@ -9,6 +9,7 @@ interface AppointmentSlideOverState {
 }
 
 interface DashboardContextValue {
+  adminId: string;
   sidebarOpen: boolean;
   toggleSidebar: () => void;
   closeSidebar: () => void;
@@ -22,7 +23,7 @@ interface DashboardContextValue {
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
 
-export function DashboardProvider({ children }: { children: ReactNode }) {
+export function DashboardProvider({ children, adminId }: { children: ReactNode; adminId: string }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [appointmentSlideOver, setAppointmentSlideOver] =
     useState<AppointmentSlideOverState>({ open: false, appointment: null });
@@ -50,6 +51,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   return (
     <DashboardContext.Provider
       value={{
+        adminId,
         sidebarOpen,
         toggleSidebar,
         closeSidebar,

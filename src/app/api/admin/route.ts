@@ -11,6 +11,51 @@ const createAdminSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
 });
 
+// --- GET: List all admins ---
+export async function GET() {
+  try {
+    const supabase = await createServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const admin = await prisma.admin.findUnique({ where: { id: user.id } });
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden" },
+        { status: 403 }
+      );
+    }
+
+    const admins = await prisma.admin.findMany({
+      orderBy: { createdAt: "asc" },
+    });
+
+    const serialized = admins.map((a) => ({
+      id: a.id,
+      name: a.name,
+      email: a.email,
+      createdAt: a.createdAt.toISOString(),
+    }));
+
+    return NextResponse.json({ success: true, admins: serialized });
+  } catch (error) {
+    console.error("GET /api/admin error:", error);
+    return NextResponse.json(
+      { success: false, error: "An unexpected error occurred." },
+      { status: 500 }
+    );
+  }
+}
+
+// --- POST: Create admin ---
 export async function POST(request: NextRequest) {
   try {
     // Auth check: verify requester is an admin
