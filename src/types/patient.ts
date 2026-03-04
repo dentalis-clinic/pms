@@ -37,7 +37,7 @@ export interface PatientMatch {
 export interface AppointmentRow {
   id: string;
   patientId: string;
-  type: AppointmentType; // DEPRECATED: Use bookingChannel + visitType instead
+  type: AppointmentType | null; // DEPRECATED: Use bookingChannel + visitType instead
   bookingChannel: BookingChannel;
   visitType: VisitType;
   priority: AppointmentPriority | null;

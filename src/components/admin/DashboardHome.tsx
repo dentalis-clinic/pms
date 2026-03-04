@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { formatISTDateTime } from "@/lib/utils/date";
 import { STATUS_BADGE, TYPE_LABEL } from "@/lib/constants/appointment";
 import { Badge, Button } from "@/components/ui";
@@ -15,15 +15,24 @@ const KPI_LABELS: { key: keyof DashboardStats; label: string }[] = [
   { key: "totalPatients", label: "Total Patients" },
 ];
 
-export default function DashboardHome() {
-  const { refreshKey, openConfirmAppointment } = useDashboard();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
-  const [loading, setLoading] = useState(true);
+interface DashboardHomeProps {
+  initialStats: DashboardStats;
+  initialAppointments: AppointmentRow[];
+}
 
+export default function DashboardHome({
+  initialStats,
+  initialAppointments,
+}: DashboardHomeProps) {
+  const { refreshKey, openConfirmAppointment } = useDashboard();
+  const [stats, setStats] = useState<DashboardStats>(initialStats);
+  const [appointments, setAppointments] =
+    useState<AppointmentRow[]>(initialAppointments);
+  const isFirstRender = useRef(true);
+
+  // Only refetch client-side when refreshKey changes (after mutations)
   const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
       const [statsRes, appointmentsRes] = await Promise.all([
         fetch("/api/dashboard/stats"),
         fetch(
@@ -41,22 +50,17 @@ export default function DashboardHome() {
         setAppointments(appointmentsData.appointments);
     } catch (err) {
       console.error("Failed to fetch dashboard data:", err);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    // Skip the initial render — we already have server-fetched data
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     fetchData();
   }, [fetchData, refreshKey]);
-
-  if (loading) {
-    return (
-      <div className="py-12 text-center text-sm text-text-hint">
-        Loading dashboard...
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -69,7 +73,7 @@ export default function DashboardHome() {
           >
             <p className="text-sm font-medium text-text-hint">{label}</p>
             <p className="mt-1 text-2xl font-semibold text-text-primary">
-              {stats?.[key] ?? 0}
+              {stats[key] ?? 0}
             </p>
           </div>
         ))}
@@ -114,7 +118,7 @@ export default function DashboardHome() {
                     <span>
                       {formatISTDateTime(new Date(a.preferredDateTime))}
                     </span>
-                    <Badge variant="neutral">{TYPE_LABEL[a.type]}</Badge>
+                    <Badge variant="neutral">{a.type ? TYPE_LABEL[a.type] : "—"}</Badge>
                   </div>
 
                   {/* Reason */}

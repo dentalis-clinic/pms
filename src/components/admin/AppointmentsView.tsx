@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { AppointmentRow } from "@/types/patient";
 import PatientTable from "@/components/PatientTable";
 import CSVExportButton from "@/components/CSVExportButton";
@@ -10,16 +10,24 @@ import { Button } from "@/components/ui";
 type DateTab = "today" | "upcoming" | "all";
 
 const TABS: { value: DateTab; label: string }[] = [
+  { value: "all", label: "All" },
   { value: "today", label: "Today" },
   { value: "upcoming", label: "Upcoming" },
-  { value: "all", label: "All" },
 ];
 
-export default function AppointmentsView() {
+interface AppointmentsViewProps {
+  initialAppointments: AppointmentRow[];
+}
+
+export default function AppointmentsView({
+  initialAppointments,
+}: AppointmentsViewProps) {
   const { refreshKey, openConfirmAppointment } = useDashboard();
   const [activeTab, setActiveTab] = useState<DateTab>("today");
-  const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [appointments, setAppointments] =
+    useState<AppointmentRow[]>(initialAppointments);
+  const [loading, setLoading] = useState(false);
+  const isFirstRender = useRef(true);
 
   const fetchAppointments = useCallback(async () => {
     try {
@@ -42,8 +50,22 @@ export default function AppointmentsView() {
   }, [activeTab]);
 
   useEffect(() => {
+    // Skip initial render for the "today" tab — server already fetched it
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     fetchAppointments();
   }, [fetchAppointments, refreshKey]);
+
+  // When tab changes after first render, always fetch
+  const handleTabChange = (tab: DateTab) => {
+    setActiveTab(tab);
+    // activeTab state update will trigger the useEffect on next render,
+    // but since isFirstRender is already false, it will fetch.
+    // However, we need to handle the case where the user clicks "today"
+    // after switching away — the useEffect dependency on activeTab handles this.
+  };
 
   return (
     <div className="space-y-4">
@@ -53,7 +75,7 @@ export default function AppointmentsView() {
           {TABS.map((tab) => (
             <button
               key={tab.value}
-              onClick={() => setActiveTab(tab.value)}
+              onClick={() => handleTabChange(tab.value)}
               className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
                 activeTab === tab.value
                   ? "bg-surface-primary text-text-primary shadow-sm"
