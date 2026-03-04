@@ -20,6 +20,7 @@ export const DateSlotPicker: React.FC<DateSlotPickerProps> = ({
   disabled = false,
   allowOverride = false,
   onConflict,
+  excludeAppointmentId,
 }) => {
   // Parse current value to extract date and time
   const parsedValue = useMemo(() => {
@@ -110,6 +111,7 @@ export const DateSlotPicker: React.FC<DateSlotPickerProps> = ({
           onSlotSelect={handleSlotSelect}
           allowOverride={allowOverride}
           onConflict={handleConflict}
+          excludeAppointmentId={excludeAppointmentId}
         />
       </div>
     </div>

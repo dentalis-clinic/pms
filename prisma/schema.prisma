@@ -14,17 +14,39 @@ enum SubmissionSource {
   ADMIN
 }
 
+// DEPRECATED: Use bookingChannel + visitType instead
 enum AppointmentType {
   PATIENT_BOOKING
   WALK_IN
   FOLLOW_UP
 }
 
+enum BookingChannel {
+  ONLINE      // Patient used web form
+  PHONE       // Patient called, admin transcribed
+  WALK_IN     // Patient arrived without prior booking
+  SMS         // Future: SMS booking
+  WHATSAPP    // Future: WhatsApp booking
+}
+
+enum VisitType {
+  NEW_CONSULTATION  // First visit or new issue
+  FOLLOW_UP         // Continuing previous treatment
+}
+
 enum AppointmentStatus {
-  TENTATIVE
-  CONFIRMED
-  COMPLETED
-  CANCELLED
+  PENDING     // Appointment booked, awaiting patient arrival (was TENTATIVE)
+  OVERDUE     // Scheduled time passed, patient didn't show up
+  CONFIRMED   // Patient arrived, treatment in progress
+  COMPLETED   // Treatment finished
+  CANCELLED   // Appointment cancelled (manual or auto)
+  TENTATIVE   // DEPRECATED: Keep for migration compatibility
+}
+
+enum AppointmentPriority {
+  ROUTINE     // Standard appointment
+  URGENT      // Needs attention soon
+  EMERGENCY   // Same-day critical care
 }
 
 enum Sex {
@@ -58,8 +80,16 @@ model Patient {
 model Appointment {
   id                String            @id @default(uuid())
   patientId         String
-  type              AppointmentType
-  status            AppointmentStatus @default(TENTATIVE)
+
+  // NEW: Separate channel and visit type (replaces conflated `type`)
+  bookingChannel    BookingChannel
+  visitType         VisitType
+  priority          AppointmentPriority?
+
+  // DEPRECATED: Keep for migration compatibility, will be removed later
+  type              AppointmentType?
+
+  status            AppointmentStatus @default(PENDING)
   preferredDateTime DateTime
   reasonForVisit    String?           @db.Text
   submittedBy       SubmissionSource
@@ -76,6 +106,8 @@ model Appointment {
   @@index([status])
   @@index([preferredDateTime])
   @@index([createdAt])
+  @@index([bookingChannel])
+  @@index([visitType])
   @@map("appointments")
 }
 

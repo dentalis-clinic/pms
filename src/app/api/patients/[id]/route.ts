@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { patchPatientSchema } from "@/lib/validations/appointment";
 import { normalizePhoneNumber } from "@/lib/utils/phone";
 
@@ -12,26 +12,8 @@ export async function PATCH(
   try {
     const { id } = await params;
 
-    // Auth check
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const admin = await prisma.admin.findUnique({ where: { id: user.id } });
-    if (!admin) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden" },
-        { status: 403 }
-      );
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
     // Find patient
     const existing = await prisma.patient.findUnique({ where: { id } });

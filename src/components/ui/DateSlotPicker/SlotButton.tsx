@@ -13,6 +13,7 @@ export const SlotButton: React.FC<SlotButtonProps> = ({
   onClick,
   disabled = false,
   count = 0,
+  allowOverride = false,
 }) => {
   // Format time for display (e.g., "10:00" -> "10:00 AM")
   const formatTime = (time: string): string => {
@@ -62,10 +63,9 @@ export const SlotButton: React.FC<SlotButtonProps> = ({
     <button
       type="button"
       onClick={onClick}
-      disabled={disabled || (!available && !selected)}
+      disabled={disabled || (!available && !selected && !allowOverride)}
       className={getButtonClasses()}
       aria-label={getAriaLabel()}
-      aria-pressed={selected}
       role="radio"
       aria-checked={selected}
     >

@@ -5,7 +5,7 @@ import { formatISTDateTime } from "@/lib/utils/date";
 import type { AppointmentRow } from "@/types/patient";
 import type { AppointmentStatus } from "@/generated/prisma/client";
 import { Input, Badge } from "@/components/ui";
-import { STATUS_BADGE, TYPE_LABEL } from "@/lib/constants/appointment";
+import { STATUS_BADGE, CHANNEL_LABEL, VISIT_TYPE_LABEL } from "@/lib/constants/appointment";
 
 interface PatientTableProps {
   appointments: AppointmentRow[];
@@ -34,7 +34,7 @@ function KebabMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
 
-  const canCancel = status === "TENTATIVE" || status === "CONFIRMED";
+  const canCancel = status === "PENDING" || status === "OVERDUE" || status === "CONFIRMED" || status === "TENTATIVE";
 
   // Close on click outside
   useEffect(() => {
@@ -246,7 +246,7 @@ export default function PatientTable({
                 Name{sortIndicator("name")}
               </th>
               <th className={thClass}>Phone</th>
-              <th className={thClass}>Type</th>
+              <th className={thClass}>Visit</th>
               <th className={thClass} onClick={() => handleSort("status")}>
                 Status{sortIndicator("status")}
               </th>
@@ -267,6 +267,15 @@ export default function PatientTable({
               const isHighlighted = highlightId === a.id;
               const statusBadge = STATUS_BADGE[a.status];
 
+              // Channel icon mapping
+              const channelIcon = {
+                ONLINE: "🌐",
+                PHONE: "📱",
+                WALK_IN: "👤",
+                SMS: "💬",
+                WHATSAPP: "💬",
+              }[a.bookingChannel];
+
               return (
                 <tr
                   key={a.id}
@@ -282,10 +291,25 @@ export default function PatientTable({
                     {a.patient.phone}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2">
-                    <Badge variant="neutral">{TYPE_LABEL[a.type]}</Badge>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs opacity-60" title={CHANNEL_LABEL[a.bookingChannel]}>
+                        {channelIcon}
+                      </span>
+                      {a.visitType === "FOLLOW_UP" && (
+                        <Badge variant="neutral" className="text-xs">
+                          ↩️ {VISIT_TYPE_LABEL.FOLLOW_UP}
+                        </Badge>
+                      )}
+                    </div>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2">
-                    <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
+                    <Badge
+                      variant={statusBadge.variant}
+                      className={a.priority === "EMERGENCY" ? "border-2 border-red-500" : ""}
+                    >
+                      {a.priority === "EMERGENCY" && "🚨 "}
+                      {statusBadge.label}
+                    </Badge>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-text-secondary">
                     {formatISTDateTime(new Date(a.preferredDateTime))}
@@ -298,8 +322,8 @@ export default function PatientTable({
                   </td>
                   <td className="whitespace-nowrap px-3 py-2">
                     <div className="flex items-center gap-1.5">
-                      {/* TENTATIVE → Confirm button */}
-                      {a.status === "TENTATIVE" && (
+                      {/* PENDING or OVERDUE → Confirm button (patient arrived) */}
+                      {(a.status === "PENDING" || a.status === "OVERDUE" || a.status === "TENTATIVE") && (
                         <button
                           type="button"
                           onClick={() => onConfirmAppointment(a)}

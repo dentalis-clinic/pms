@@ -2,6 +2,9 @@ import type {
   SubmissionSource,
   AppointmentType,
   AppointmentStatus,
+  BookingChannel,
+  VisitType,
+  AppointmentPriority,
   Sex,
 } from "@/generated/prisma/client";
 
@@ -34,7 +37,10 @@ export interface PatientMatch {
 export interface AppointmentRow {
   id: string;
   patientId: string;
-  type: AppointmentType;
+  type: AppointmentType; // DEPRECATED: Use bookingChannel + visitType instead
+  bookingChannel: BookingChannel;
+  visitType: VisitType;
+  priority: AppointmentPriority | null;
   status: AppointmentStatus;
   preferredDateTime: string;
   reasonForVisit: string | null;

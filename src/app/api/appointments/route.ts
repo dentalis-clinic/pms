@@ -9,9 +9,16 @@ import {
 import { normalizePhoneNumber } from "@/lib/utils/phone";
 import { findOrCreatePatient } from "@/lib/utils/patient-id";
 import { checkRateLimit } from "@/lib/utils/rate-limit";
+import { createAppointmentAtomic, SlotConflictError } from "@/lib/utils/slot-conflict";
+import { resolvePatientToken } from "@/lib/utils/patient-token";
+import { validateOrigin } from "@/lib/utils/csrf";
 
 export async function POST(request: NextRequest) {
   try {
+    // CSRF validation
+    const csrfError = validateOrigin(request);
+    if (csrfError) return csrfError;
+
     const body = await request.json();
 
     // Detect submission type via Supabase session
@@ -20,14 +27,20 @@ export async function POST(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const isAdminSubmission = !!user && body.submittedByAdmin === true;
+    // Verify admin claim against admins table (prevent bypass via submittedByAdmin flag)
+    let isAdminSubmission = false;
+    if (user && body.submittedByAdmin === true) {
+      const admin = await prisma.admin.findUnique({ where: { id: user.id } });
+      isAdminSubmission = !!admin;
+    }
 
     // Rate limit (public submissions only)
     if (!isAdminSubmission) {
       const ip =
+        request.headers.get("x-real-ip") ??
         request.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
         "unknown";
-      const { allowed, remaining } = checkRateLimit(ip);
+      const { allowed, remaining } = await checkRateLimit(ip);
 
       if (!allowed) {
         return NextResponse.json(
@@ -82,9 +95,13 @@ export async function POST(request: NextRequest) {
     let patient: { id: string; patientId: string };
 
     if (fullData.existingPatientId) {
-      // Returning patient selected from masked name list
+      // Resolve opaque token to patient UUID (public flow uses tokens, admin uses UUIDs directly)
+      const resolvedId = isAdminSubmission
+        ? fullData.existingPatientId
+        : resolvePatientToken(fullData.existingPatientId) ?? fullData.existingPatientId;
+
       const existing = await prisma.patient.findUnique({
-        where: { id: fullData.existingPatientId },
+        where: { id: resolvedId },
         select: { id: true, patientId: true, phone: true },
       });
 
@@ -163,33 +180,30 @@ export async function POST(request: NextRequest) {
       patient = result.patient;
     }
 
-    // Check for slot conflicts (prevent double-booking)
-    const conflictingAppointment = await prisma.appointment.findFirst({
-      where: {
-        preferredDateTime: data.preferredDateTime,
-        status: {
-          in: ["TENTATIVE", "CONFIRMED", "COMPLETED"],
-        },
-      },
-    });
+    // Infer booking channel and visit type
+    const adminData = fullData as typeof fullData & {
+      isPhoneBooking?: boolean;
+      visitType?: "NEW_CONSULTATION" | "FOLLOW_UP";
+      priority?: "ROUTINE" | "URGENT" | "EMERGENCY";
+    };
 
-    if (conflictingAppointment) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "This time slot is already booked. Please choose another time.",
-          code: "SLOT_CONFLICT",
-        },
-        { status: 409 }
-      );
-    }
+    const bookingChannel = isAdminSubmission
+      ? adminData.isPhoneBooking
+        ? "PHONE"
+        : "WALK_IN"
+      : "ONLINE";
 
-    // Create appointment
-    const appointment = await prisma.appointment.create({
+    const visitType = adminData.visitType ?? "NEW_CONSULTATION";
+    const priority = adminData.priority ?? null;
+
+    // Create appointment atomically with slot conflict check
+    const appointment = await createAppointmentAtomic(prisma, {
       data: {
         patientId: patient.id,
-        type: isAdminSubmission ? "WALK_IN" : "PATIENT_BOOKING",
-        status: "TENTATIVE",
+        bookingChannel,
+        visitType,
+        priority,
+        status: "PENDING",
         preferredDateTime: data.preferredDateTime,
         reasonForVisit: fullData.reasonForVisit || null,
         submittedBy: isAdminSubmission ? "ADMIN" : "PATIENT",
@@ -210,6 +224,12 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof SlotConflictError) {
+      return NextResponse.json(
+        { success: false, error: error.message, code: "SLOT_CONFLICT" },
+        { status: 409 }
+      );
+    }
     console.error("POST /api/appointments error:", error);
     return NextResponse.json(
       { success: false, error: "An unexpected error occurred." },

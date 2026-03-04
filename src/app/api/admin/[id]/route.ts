@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { env } from "@/env";
 
 const patchAdminSchema = z.object({
@@ -16,27 +16,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const currentAdmin = await prisma.admin.findUnique({
-      where: { id: user.id },
-    });
-    if (!currentAdmin) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden" },
-        { status: 403 }
-      );
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
+    const { user } = auth;
 
     const { id } = await params;
 
@@ -88,8 +70,9 @@ export async function PATCH(
         await supabaseAdmin.auth.admin.updateUserById(id, { email });
 
       if (authError) {
+        console.error("Admin email update auth error:", authError.message);
         return NextResponse.json(
-          { success: false, error: `Auth error: ${authError.message}` },
+          { success: false, error: "Failed to update admin email." },
           { status: 400 }
         );
       }
@@ -126,27 +109,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const currentAdmin = await prisma.admin.findUnique({
-      where: { id: user.id },
-    });
-    if (!currentAdmin) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden" },
-        { status: 403 }
-      );
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
+    const { user } = auth;
 
     const { id } = await params;
 
@@ -190,15 +155,20 @@ export async function DELETE(
       );
     }
 
-    // Delete from Prisma first, then Supabase auth
-    await prisma.admin.delete({ where: { id } });
-
+    // Delete Supabase auth first (harder to recover), then Prisma record
     const supabaseAdmin = createClient(
       env.NEXT_PUBLIC_SUPABASE_URL,
       env.SUPABASE_SERVICE_ROLE_KEY,
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
     await supabaseAdmin.auth.admin.deleteUser(id);
+
+    try {
+      await prisma.admin.delete({ where: { id } });
+    } catch (prismaError) {
+      // Auth user already deleted — log warning but don't fail
+      console.warn("Supabase auth user deleted but Prisma record removal failed:", prismaError);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

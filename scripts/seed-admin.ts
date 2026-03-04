@@ -23,9 +23,17 @@ const adapter = new PrismaPg({
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const email = "admin@dentalis.com";
-  const password = "admin123"; // Change this before production!
-  const name = "Admin";
+  const email = process.env.SEED_ADMIN_EMAIL || "admin@dentalis.com";
+  const password = process.env.SEED_ADMIN_PASSWORD;
+  const name = process.env.SEED_ADMIN_NAME || "Admin";
+
+  if (!password) {
+    console.error(
+      "SEED_ADMIN_PASSWORD is required. Set it in .env or pass via environment:\n" +
+      "  SEED_ADMIN_PASSWORD=your_secure_password npx tsx scripts/seed-admin.ts"
+    );
+    process.exit(1);
+  }
 
   // Check if admin already exists in our table
   const existing = await prisma.admin.findUnique({ where: { email } });
@@ -70,7 +78,7 @@ async function main() {
   console.log(`  Email: ${admin.email}`);
   console.log(`  Name:  ${admin.name}`);
   console.log(
-    `\n⚠️  Default password is "admin123" — change it in Supabase dashboard before production!`
+    `\nAdmin seeded. Store the password securely — it cannot be retrieved later.`
   );
 }
 

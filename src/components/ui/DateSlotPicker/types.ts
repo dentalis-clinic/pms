@@ -22,6 +22,7 @@ export interface DateSlotPickerProps {
   disabled?: boolean; // Disable all interactions
   allowOverride?: boolean; // Admin only: allow booking booked slots
   onConflict?: (slot: TimeSlot) => void; // Admin only: callback when booked slot is clicked
+  excludeAppointmentId?: string; // UUID to exclude from availability check (prevents self-conflict)
 }
 
 export interface DateSelectorProps {
@@ -48,4 +49,5 @@ export interface SlotButtonProps {
   onClick: () => void;
   disabled?: boolean;
   count?: number; // Number of appointments (for admin view)
+  allowOverride?: boolean; // Admin: allow clicking booked slots
 }

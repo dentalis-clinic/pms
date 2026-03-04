@@ -33,13 +33,16 @@ export const SlotGrid: React.FC<SlotGridProps> = ({
   );
 
   // Fetch availability from API
+  const cacheRef = React.useRef(cache);
+  cacheRef.current = cache;
+
   const fetchAvailability = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
       // Check cache first
-      const cachedData = cache.get(date);
+      const cachedData = cacheRef.current.get(date);
       if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL_MS) {
         setSlots(cachedData.data);
         setLoading(false);
@@ -87,7 +90,7 @@ export const SlotGrid: React.FC<SlotGridProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [date, excludeAppointmentId, cache]);
+  }, [date, excludeAppointmentId]);
 
   // Fetch availability when date changes
   useEffect(() => {
@@ -219,6 +222,7 @@ export const SlotGrid: React.FC<SlotGridProps> = ({
                 selected={selectedSlot === slot.time}
                 onClick={() => handleSlotClick(slot)}
                 count={slot.count}
+                allowOverride={allowOverride}
               />
             ))}
           </div>
@@ -244,6 +248,7 @@ export const SlotGrid: React.FC<SlotGridProps> = ({
                 selected={selectedSlot === slot.time}
                 onClick={() => handleSlotClick(slot)}
                 count={slot.count}
+                allowOverride={allowOverride}
               />
             ))}
           </div>

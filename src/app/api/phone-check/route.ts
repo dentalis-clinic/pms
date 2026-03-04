@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { normalizePhoneNumber } from "@/lib/utils/phone";
 import { maskName } from "@/lib/utils/mask-name";
 import { checkRateLimit } from "@/lib/utils/rate-limit";
+import { generatePatientToken } from "@/lib/utils/patient-token";
 import type { PhoneCheckStatus, MaskedPatient } from "@/types/patient";
 
 const PHONE_CHECK_RATE_LIMIT = 10;
@@ -11,9 +12,10 @@ export async function GET(request: NextRequest) {
   try {
     // Rate limit: 10 checks per IP per hour
     const ip =
+      request.headers.get("x-real-ip") ??
       request.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
       "unknown";
-    const { allowed } = checkRateLimit(ip, {
+    const { allowed } = await checkRateLimit(ip, {
       namespace: "phone-check",
       max: PHONE_CHECK_RATE_LIMIT,
     });
@@ -77,7 +79,7 @@ export async function GET(request: NextRequest) {
     const maskedPatients: MaskedPatient[] = patients.map((p) => {
       const hasPending = p.appointments.length > 0;
       return {
-        id: p.id,
+        id: generatePatientToken(p.id), // Opaque token instead of UUID
         maskedName: maskName(p.name),
         hasPending,
         pendingDate: hasPending

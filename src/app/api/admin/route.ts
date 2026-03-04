@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { env } from "@/env";
 
 const createAdminSchema = z.object({
@@ -14,25 +14,8 @@ const createAdminSchema = z.object({
 // --- GET: List all admins ---
 export async function GET() {
   try {
-    const supabase = await createServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const admin = await prisma.admin.findUnique({ where: { id: user.id } });
-    if (!admin) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden" },
-        { status: 403 }
-      );
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
     const admins = await prisma.admin.findMany({
       orderBy: { createdAt: "asc" },
@@ -58,28 +41,8 @@ export async function GET() {
 // --- POST: Create admin ---
 export async function POST(request: NextRequest) {
   try {
-    // Auth check: verify requester is an admin
-    const supabase = await createServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const existingAdmin = await prisma.admin.findUnique({
-      where: { id: user.id },
-    });
-    if (!existingAdmin) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden" },
-        { status: 403 }
-      );
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
     // Validate body
     const body = await request.json();
@@ -119,8 +82,9 @@ export async function POST(request: NextRequest) {
       });
 
     if (authError) {
+      console.error("Admin creation auth error:", authError.message);
       return NextResponse.json(
-        { success: false, error: `Auth error: ${authError.message}` },
+        { success: false, error: "Failed to create admin account." },
         { status: 400 }
       );
     }

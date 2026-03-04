@@ -1,31 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { followUpSchema } from "@/lib/validations/appointment";
+import { createAppointmentAtomic, SlotConflictError } from "@/lib/utils/slot-conflict";
 
 export async function POST(request: NextRequest) {
   try {
-    // Auth check
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const admin = await prisma.admin.findUnique({ where: { id: user.id } });
-    if (!admin) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden" },
-        { status: 403 }
-      );
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
+    const { user } = auth;
 
     // Validate body
     const body = await request.json();
@@ -53,11 +37,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create follow-up appointment
-    const appointment = await prisma.appointment.create({
+    // Create follow-up appointment with atomic slot conflict check
+    const appointment = await createAppointmentAtomic(prisma, {
       data: {
         patientId: patient.id,
         type: "FOLLOW_UP",
+        bookingChannel: "WALK_IN",
+        visitType: "FOLLOW_UP",
         status: "TENTATIVE",
         preferredDateTime: data.preferredDateTime,
         reasonForVisit: data.reasonForVisit || null,
@@ -77,6 +63,12 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof SlotConflictError) {
+      return NextResponse.json(
+        { success: false, error: error.message, code: "SLOT_CONFLICT" },
+        { status: 409 }
+      );
+    }
     console.error("POST /api/appointments/follow-up error:", error);
     return NextResponse.json(
       { success: false, error: "An unexpected error occurred." },

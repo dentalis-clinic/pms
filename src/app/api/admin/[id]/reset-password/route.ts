@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { env } from "@/env";
 
 export async function POST(
@@ -9,27 +9,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const currentAdmin = await prisma.admin.findUnique({
-      where: { id: user.id },
-    });
-    if (!currentAdmin) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden" },
-        { status: 403 }
-      );
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
     const { id } = await params;
 
@@ -52,8 +33,9 @@ export async function POST(
     );
 
     if (error) {
+      console.error("Password reset error:", error.message);
       return NextResponse.json(
-        { success: false, error: `Failed to send reset email: ${error.message}` },
+        { success: false, error: "Failed to send password reset email." },
         { status: 400 }
       );
     }

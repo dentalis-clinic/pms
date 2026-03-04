@@ -6,6 +6,28 @@ import {
 } from "@/lib/utils/time-slots";
 import { BUSINESS_HOURS_CONFIG } from "@/lib/config/business-hours";
 
+// --- New Enums (matching Prisma schema) ---
+
+export const bookingChannelEnum = z.enum([
+  "ONLINE",
+  "PHONE",
+  "WALK_IN",
+  "SMS",
+  "WHATSAPP",
+]);
+
+export const visitTypeEnum = z.enum(["NEW_CONSULTATION", "FOLLOW_UP"]);
+
+export const priorityEnum = z.enum(["ROUTINE", "URGENT", "EMERGENCY"]);
+
+export const appointmentStatusEnum = z.enum([
+  "PENDING",
+  "OVERDUE",
+  "CONFIRMED",
+  "COMPLETED",
+  "CANCELLED",
+]);
+
 // --- Phone check (public progressive form) ---
 
 export const phoneCheckSchema = z.object({
@@ -96,6 +118,10 @@ export const walkInSchema = publicBookingBaseSchema.extend({
     .optional()
     .or(z.literal("")),
   submittedByAdmin: z.literal(true).optional(),
+  // NEW: Separate booking channel and visit type
+  isPhoneBooking: z.boolean().optional(), // If true, bookingChannel = PHONE; else WALK_IN
+  visitType: visitTypeEnum.optional(),    // NEW_CONSULTATION or FOLLOW_UP
+  priority: priorityEnum.optional(),      // ROUTINE, URGENT, or EMERGENCY
 });
 
 // --- Follow-up appointment (admin, existing patient) ---
@@ -129,14 +155,18 @@ export const followUpSchema = z.object({
     .max(1000, "Reason must be 1000 characters or less")
     .optional()
     .or(z.literal("")),
+  // NEW: Booking method and priority
+  isPhoneBooking: z.boolean().optional(), // If true, bookingChannel = PHONE; else WALK_IN
+  priority: priorityEnum.optional(),      // ROUTINE, URGENT, or EMERGENCY
 });
 
 // --- Patch appointment (admin updates) ---
 
 export const patchAppointmentSchema = z.object({
-  status: z
-    .enum(["TENTATIVE", "CONFIRMED", "COMPLETED", "CANCELLED"])
-    .optional(),
+  status: appointmentStatusEnum.optional(), // PENDING, OVERDUE, CONFIRMED, COMPLETED, CANCELLED
+  bookingChannel: bookingChannelEnum.optional(), // ONLINE, PHONE, WALK_IN, SMS, WHATSAPP
+  visitType: visitTypeEnum.optional(), // NEW_CONSULTATION, FOLLOW_UP
+  priority: priorityEnum.optional(), // ROUTINE, URGENT, EMERGENCY
   reasonForVisit: z
     .string()
     .trim()
@@ -230,7 +260,9 @@ export const confirmAppointmentSchema = z.object({
   existingAppointmentId: z.string().uuid().optional(),
   existingPatientId: z.string().uuid().optional(),
   // Visit type for returning patients (new appointment mode only)
-  visitType: z.enum(["NEW_CONSULTATION", "FOLLOW_UP"]).optional(),
+  visitType: visitTypeEnum.optional(), // NEW_CONSULTATION or FOLLOW_UP
+  // NEW: Priority flag
+  priority: priorityEnum.optional(), // ROUTINE, URGENT, or EMERGENCY
 });
 
 export type ConfirmAppointmentInput = z.input<typeof confirmAppointmentSchema>;

@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
+import { Prisma } from "@/generated/prisma/client";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { confirmAppointmentSchema } from "@/lib/validations/appointment";
 import { normalizePhoneNumber } from "@/lib/utils/phone";
 import { findOrCreatePatient } from "@/lib/utils/patient-id";
+import { checkSlotConflict, SlotConflictError } from "@/lib/utils/slot-conflict";
 import type { Sex } from "@/generated/prisma/client";
 
 /** Valid status transitions (subset used here). */
@@ -14,26 +16,9 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 
 export async function POST(request: NextRequest) {
   try {
-    // Auth check
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const admin = await prisma.admin.findUnique({ where: { id: user.id } });
-    if (!admin) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden" },
-        { status: 403 }
-      );
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
+    const { admin, user } = auth;
 
     // Validate
     const body = await request.json();
@@ -89,7 +74,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Update patient demographics
+      // Update patient demographics + confirm appointment atomically
       const patientUpdates: Record<string, unknown> = {};
       if (data.name && data.name !== appointment.patient.name)
         patientUpdates.name = data.name;
@@ -98,45 +83,31 @@ export async function POST(request: NextRequest) {
       if (data.dateOfBirth)
         patientUpdates.dateOfBirth = data.dateOfBirth;
 
-      if (Object.keys(patientUpdates).length > 0) {
-        await prisma.patient.update({
-          where: { id: appointment.patient.id },
-          data: patientUpdates,
-        });
-      }
+      const updated = await prisma.$transaction(
+        async (tx) => {
+          if (Object.keys(patientUpdates).length > 0) {
+            await tx.patient.update({
+              where: { id: appointment.patient.id },
+              data: patientUpdates,
+            });
+          }
 
-      // Check for slot conflicts (exclude current appointment)
-      if (!allowOverride) {
-        const conflict = await prisma.appointment.findFirst({
-          where: {
-            preferredDateTime: data.preferredDateTime,
-            status: { in: ["TENTATIVE", "CONFIRMED", "COMPLETED"] },
-            id: { not: appointment.id }, // Exclude current appointment
-          },
-        });
+          if (!allowOverride) {
+            await checkSlotConflict(tx, data.preferredDateTime, appointment.id);
+          }
 
-        if (conflict) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: "This time slot is already booked. Please choose another time.",
-              code: "SLOT_CONFLICT",
+          return tx.appointment.update({
+            where: { id: appointment.id },
+            data: {
+              status: "CONFIRMED",
+              reasonForVisit: data.reasonForVisit || appointment.reasonForVisit,
+              preferredDateTime: data.preferredDateTime,
+              adminUserId: admin.id,
             },
-            { status: 409 }
-          );
-        }
-      }
-
-      // Confirm the appointment
-      const updated = await prisma.appointment.update({
-        where: { id: appointment.id },
-        data: {
-          status: "CONFIRMED",
-          reasonForVisit: data.reasonForVisit || appointment.reasonForVisit,
-          preferredDateTime: data.preferredDateTime,
-          adminUserId: admin.id,
+          });
         },
-      });
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+      );
 
       return NextResponse.json(
         {
@@ -179,38 +150,29 @@ export async function POST(request: NextRequest) {
       const appointmentType =
         data.visitType === "FOLLOW_UP" ? "FOLLOW_UP" : "WALK_IN";
 
-      // Check for slot conflicts
-      if (!allowOverride) {
-        const conflict = await prisma.appointment.findFirst({
-          where: {
-            preferredDateTime: data.preferredDateTime,
-            status: { in: ["TENTATIVE", "CONFIRMED", "COMPLETED"] },
-          },
-        });
+      // Create appointment atomically with slot conflict check
+      const appointment = await prisma.$transaction(
+        async (tx) => {
+          if (!allowOverride) {
+            await checkSlotConflict(tx, data.preferredDateTime);
+          }
 
-        if (conflict) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: "This time slot is already booked. Please choose another time.",
-              code: "SLOT_CONFLICT",
+          return tx.appointment.create({
+            data: {
+              patientId: patient.id,
+              type: appointmentType,
+              bookingChannel: "WALK_IN",
+              visitType: data.visitType === "FOLLOW_UP" ? "FOLLOW_UP" : "NEW_CONSULTATION",
+              status: "CONFIRMED",
+              preferredDateTime: data.preferredDateTime,
+              reasonForVisit: data.reasonForVisit || null,
+              submittedBy: "ADMIN",
+              adminUserId: admin.id,
             },
-            { status: 409 }
-          );
-        }
-      }
-
-      const appointment = await prisma.appointment.create({
-        data: {
-          patientId: patient.id,
-          type: appointmentType,
-          status: "CONFIRMED",
-          preferredDateTime: data.preferredDateTime,
-          reasonForVisit: data.reasonForVisit || null,
-          submittedBy: "ADMIN",
-          adminUserId: admin.id,
+          });
         },
-      });
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+      );
 
       return NextResponse.json(
         {
@@ -232,38 +194,29 @@ export async function POST(request: NextRequest) {
       sex: (data.sex as Sex) || null,
     });
 
-    // Check for slot conflicts
-    if (!allowOverride) {
-      const conflict = await prisma.appointment.findFirst({
-        where: {
-          preferredDateTime: data.preferredDateTime,
-          status: { in: ["TENTATIVE", "CONFIRMED", "COMPLETED"] },
-        },
-      });
+    // Create appointment atomically with slot conflict check
+    const appointment = await prisma.$transaction(
+      async (tx) => {
+        if (!allowOverride) {
+          await checkSlotConflict(tx, data.preferredDateTime);
+        }
 
-      if (conflict) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "This time slot is already booked. Please choose another time.",
-            code: "SLOT_CONFLICT",
+        return tx.appointment.create({
+          data: {
+            patientId: patient.id,
+            type: "WALK_IN",
+            bookingChannel: "WALK_IN",
+            visitType: "NEW_CONSULTATION",
+            status: "CONFIRMED",
+            preferredDateTime: data.preferredDateTime,
+            reasonForVisit: data.reasonForVisit || null,
+            submittedBy: "ADMIN",
+            adminUserId: admin.id,
           },
-          { status: 409 }
-        );
-      }
-    }
-
-    const appointment = await prisma.appointment.create({
-      data: {
-        patientId: patient.id,
-        type: "WALK_IN",
-        status: "CONFIRMED",
-        preferredDateTime: data.preferredDateTime,
-        reasonForVisit: data.reasonForVisit || null,
-        submittedBy: "ADMIN",
-        adminUserId: admin.id,
+        });
       },
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
 
     return NextResponse.json(
       {
@@ -275,6 +228,12 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof SlotConflictError) {
+      return NextResponse.json(
+        { success: false, error: error.message, code: "SLOT_CONFLICT" },
+        { status: 409 }
+      );
+    }
     console.error("POST /api/appointments/confirm error:", error);
     return NextResponse.json(
       { success: false, error: "An unexpected error occurred." },

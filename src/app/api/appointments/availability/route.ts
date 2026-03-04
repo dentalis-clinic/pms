@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { AppointmentStatus } from "@/generated/prisma/client";
 import { generateSlotsForDate } from "@/lib/utils/time-slots";
 import { BUSINESS_HOURS_CONFIG } from "@/lib/config/business-hours";
+import { createClient } from "@/lib/supabase/server";
 
 export interface TimeSlotAvailability {
   time: string; // HH:mm format (e.g., "10:00")
@@ -28,6 +29,13 @@ export interface AvailabilityResponse {
 
 export async function GET(request: NextRequest) {
   try {
+    // Check if caller is admin (for count visibility)
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const isAdmin = user
+      ? !!(await prisma.admin.findUnique({ where: { id: user.id } }))
+      : false;
+
     const { searchParams } = new URL(request.url);
     const dateParam = searchParams.get("date");
     const excludeAppointmentId = searchParams.get("excludeAppointmentId");
@@ -75,7 +83,7 @@ export async function GET(request: NextRequest) {
         lte: endOfDay,
       },
       status: {
-        in: ["TENTATIVE", "CONFIRMED", "COMPLETED"],
+        in: ["PENDING", "TENTATIVE", "CONFIRMED", "COMPLETED"],
       },
     };
 
@@ -107,13 +115,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Build response with availability information
+    // Strip counts for unauthenticated callers (F-10)
     const slotsWithAvailability: TimeSlotAvailability[] = slots.map((slot) => {
       const count = slotCountMap.get(slot.time) || 0;
       return {
         time: slot.time,
         datetime: slot.datetime,
-        count,
-        available: count === 0, // Slot is available if no appointments exist
+        count: isAdmin ? count : 0,
+        available: count === 0,
       };
     });
 

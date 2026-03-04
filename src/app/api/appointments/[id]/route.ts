@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { patchAppointmentSchema } from "@/lib/validations/appointment";
+import { updateAppointmentAtomic, SlotConflictError } from "@/lib/utils/slot-conflict";
 import type { AppointmentStatus } from "@/generated/prisma/client";
 
 /** Valid status transitions — terminal states have no outgoing edges. */
 const VALID_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
-  TENTATIVE: ["CONFIRMED", "CANCELLED"],
+  PENDING: ["CONFIRMED", "OVERDUE", "CANCELLED"],
+  OVERDUE: ["CONFIRMED", "CANCELLED"],
   CONFIRMED: ["COMPLETED", "CANCELLED"],
   COMPLETED: [],
   CANCELLED: [],
+  TENTATIVE: ["CONFIRMED", "CANCELLED"], // DEPRECATED: Keep for backward compatibility
 };
 
 export async function PATCH(
@@ -20,26 +23,8 @@ export async function PATCH(
   try {
     const { id } = await params;
 
-    // Auth check
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const admin = await prisma.admin.findUnique({ where: { id: user.id } });
-    if (!admin) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden" },
-        { status: 403 }
-      );
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
     // Find appointment
     const existing = await prisma.appointment.findUnique({
@@ -84,16 +69,26 @@ export async function PATCH(
     // Build update data
     const updateData: Record<string, unknown> = {};
     if (data.status !== undefined) updateData.status = data.status;
+    if (data.bookingChannel !== undefined) updateData.bookingChannel = data.bookingChannel;
+    if (data.visitType !== undefined) updateData.visitType = data.visitType;
+    if (data.priority !== undefined) updateData.priority = data.priority;
     if (data.reasonForVisit !== undefined)
       updateData.reasonForVisit = data.reasonForVisit || null;
     if (data.notes !== undefined) updateData.notes = data.notes || null;
     if (data.preferredDateTime !== undefined)
       updateData.preferredDateTime = data.preferredDateTime;
 
-    const updated = await prisma.appointment.update({
-      where: { id },
+    // Use atomic update with slot conflict check when rescheduling
+    const newDateTime = data.preferredDateTime instanceof Date
+      ? data.preferredDateTime
+      : data.preferredDateTime
+        ? new Date(data.preferredDateTime as string)
+        : undefined;
+
+    const updated = await updateAppointmentAtomic(prisma, {
+      id,
       data: updateData,
-      include: { patient: true, prescription: true },
+      newPreferredDateTime: newDateTime,
     });
 
     // Serialize dates
@@ -121,6 +116,12 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, appointment });
   } catch (error) {
+    if (error instanceof SlotConflictError) {
+      return NextResponse.json(
+        { success: false, error: error.message, code: "SLOT_CONFLICT" },
+        { status: 409 }
+      );
+    }
     console.error("PATCH /api/appointments/[id] error:", error);
     return NextResponse.json(
       { success: false, error: "An unexpected error occurred." },

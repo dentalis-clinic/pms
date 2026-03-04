@@ -30,6 +30,9 @@ export default function AppointmentSlideOver() {
   const [visitType, setVisitType] = useState<"NEW_CONSULTATION" | "FOLLOW_UP">(
     "NEW_CONSULTATION"
   );
+  const [isPhoneBooking, setIsPhoneBooking] = useState(false);
+  const [showPriority, setShowPriority] = useState(false);
+  const [priority, setPriority] = useState<"ROUTINE" | "URGENT" | "EMERGENCY">("ROUTINE");
 
   // Auto-detect state
   const [matchedPatients, setMatchedPatients] = useState<PatientMatch[]>([]);
@@ -46,6 +49,7 @@ export default function AppointmentSlideOver() {
   // Slot override state (admin only)
   const [overrideSlot, setOverrideSlot] = useState<TimeSlot | null>(null);
   const [allowOverride, setAllowOverride] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const isConfirmMode = !!appointment;
 
@@ -59,6 +63,9 @@ export default function AppointmentSlideOver() {
     setIsNewPatient(false);
     setLookingUp(false);
     setVisitType("NEW_CONSULTATION");
+    setIsPhoneBooking(false);
+    setShowPriority(false);
+    setPriority("ROUTINE");
     setOverrideSlot(null);
     setAllowOverride(false);
 
@@ -222,6 +229,14 @@ export default function AppointmentSlideOver() {
         payload.visitType = visitType;
       }
 
+      // Add booking method and priority
+      if (isPhoneBooking) {
+        payload.isPhoneBooking = true;
+      }
+      if (showPriority && priority !== "ROUTINE") {
+        payload.priority = priority;
+      }
+
       const res = await fetch("/api/appointments/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -289,7 +304,7 @@ export default function AppointmentSlideOver() {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6 p-6">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-6 p-6">
           {error && <Alert variant="error">{error}</Alert>}
 
           {/* --- Patient Section --- */}
@@ -449,6 +464,66 @@ export default function AppointmentSlideOver() {
               </FormField>
             )}
 
+            {/* Booking Method (only for new appointments) */}
+            {!isConfirmMode && (
+              <FormField label="Booking Method" htmlFor="bookingMethod">
+                <label className="flex items-center gap-2 text-sm text-text-primary cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="isPhoneBooking"
+                    checked={isPhoneBooking}
+                    onChange={(e) => setIsPhoneBooking(e.target.checked)}
+                    disabled={submitting}
+                    className="accent-interactive-primary h-4 w-4"
+                  />
+                  <span>Patient called to book (phone booking)</span>
+                </label>
+                <p className="mt-1 text-xs text-text-hint">
+                  {isPhoneBooking ? "Booking channel: Phone" : "Booking channel: Walk-in"}
+                </p>
+              </FormField>
+            )}
+
+            {/* Priority (optional, collapsible) */}
+            {!isConfirmMode && (
+              <FormField label="Priority" htmlFor="priority">
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm text-text-primary cursor-pointer">
+                    <input
+                      type="checkbox"
+                      id="showPriority"
+                      checked={showPriority}
+                      onChange={(e) => setShowPriority(e.target.checked)}
+                      disabled={submitting}
+                      className="accent-interactive-primary h-4 w-4"
+                    />
+                    <span>Mark as urgent/emergency</span>
+                  </label>
+                  {showPriority && (
+                    <div className="ml-6 flex gap-4">
+                      {(["ROUTINE", "URGENT", "EMERGENCY"] as const).map((option) => (
+                        <label
+                          key={option}
+                          className="flex items-center gap-1.5 text-sm text-text-primary cursor-pointer"
+                        >
+                          <input
+                            type="radio"
+                            name="priority"
+                            value={option}
+                            checked={priority === option}
+                            onChange={() => setPriority(option)}
+                            disabled={submitting}
+                            className="accent-interactive-primary"
+                          />
+                          {option.charAt(0) + option.slice(1).toLowerCase()}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </FormField>
+            )}
+
             {/* Preferred Date/Time */}
             <div>
               <DateSlotPicker
@@ -460,6 +535,7 @@ export default function AppointmentSlideOver() {
                   setOverrideSlot(slot);
                   setAllowOverride(false);
                 }}
+                excludeAppointmentId={isConfirmMode ? appointment.id : undefined}
               />
             </div>
 
@@ -508,8 +584,7 @@ export default function AppointmentSlideOver() {
                       setAllowOverride(true);
                       setOverrideSlot(null);
                       // Auto-submit after override is confirmed
-                      const form = document.querySelector("form");
-                      if (form) form.requestSubmit();
+                      formRef.current?.requestSubmit();
                     }}
                   >
                     Yes, Double-book

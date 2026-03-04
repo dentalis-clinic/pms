@@ -5,6 +5,7 @@ import { DateTime } from "luxon";
 import { formatISTDateTime, formatISTDate } from "@/lib/utils/date";
 import type { AppointmentRow } from "@/types/patient";
 import { Button } from "@/components/ui";
+import { CHANNEL_LABEL, VISIT_TYPE_LABEL } from "@/lib/constants/appointment";
 
 interface CSVExportButtonProps {
   appointments: AppointmentRow[];
@@ -16,7 +17,9 @@ const CSV_FIELDS = [
   { label: "Phone", value: "phone" },
   { label: "Email", value: "email" },
   { label: "DOB", value: "dateOfBirth" },
-  { label: "Type", value: "type" },
+  { label: "Booking Channel", value: "bookingChannel" },
+  { label: "Visit Type", value: "visitType" },
+  { label: "Priority", value: "priority" },
   { label: "Status", value: "status" },
   { label: "Scheduled Date/Time", value: "preferredDateTime" },
   { label: "Reason for Visit", value: "reasonForVisit" },
@@ -34,7 +37,9 @@ export default function CSVExportButton({ appointments }: CSVExportButtonProps) 
       dateOfBirth: a.patient.dateOfBirth
         ? formatISTDate(new Date(a.patient.dateOfBirth))
         : "",
-      type: a.type,
+      bookingChannel: CHANNEL_LABEL[a.bookingChannel],
+      visitType: VISIT_TYPE_LABEL[a.visitType],
+      priority: a.priority ?? "Routine",
       status: a.status,
       preferredDateTime: formatISTDateTime(new Date(a.preferredDateTime)),
       reasonForVisit: a.reasonForVisit ?? "",
