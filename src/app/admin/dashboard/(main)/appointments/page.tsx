@@ -1,7 +1,6 @@
-import { fetchAppointments } from "@/lib/data/dashboard";
 import AppointmentsView from "@/components/admin/AppointmentsView";
 
-export default async function AppointmentsPage() {
-  const appointments = await fetchAppointments("today");
-  return <AppointmentsView initialAppointments={appointments} />;
+export default function AppointmentsPage() {
+  // Let the client fetch paginated data per tab for faster first load.
+  return <AppointmentsView initialTab="today" />;
 }

@@ -59,7 +59,13 @@ export default function DashboardHome({
       isFirstRender.current = false;
       return;
     }
-    fetchData();
+
+    // Defer refresh outside the effect call stack to satisfy set-state-in-effect lint rule.
+    const timer = setTimeout(() => {
+      void fetchData();
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [fetchData, refreshKey]);
 
   return (
