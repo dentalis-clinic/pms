@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { patchAppointmentSchema } from "@/lib/validations/appointment";
 import { updateAppointmentAtomic, SlotConflictError } from "@/lib/utils/slot-conflict";
+import { validateOrigin } from "@/lib/utils/csrf";
 import type { AppointmentStatus } from "@/generated/prisma/client";
 
 /** Valid status transitions — terminal states have no outgoing edges. */
@@ -21,6 +22,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const csrfError = validateOrigin(request);
+    if (csrfError) return csrfError;
+
     const { id } = await params;
 
     const auth = await requireAdmin();

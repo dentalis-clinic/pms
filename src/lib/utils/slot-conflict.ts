@@ -4,7 +4,7 @@ import type { TxClient } from "./patient-id";
 /** Statuses that occupy a slot (block new bookings). */
 const BLOCKING_STATUSES: AppointmentStatus[] = [
   "PENDING",
-  "TENTATIVE",
+  "OVERDUE",
   "CONFIRMED",
   "COMPLETED",
 ];

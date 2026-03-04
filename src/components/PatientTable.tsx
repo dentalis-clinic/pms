@@ -34,7 +34,7 @@ function KebabMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
 
-  const canCancel = status === "PENDING" || status === "OVERDUE" || status === "CONFIRMED" || status === "TENTATIVE";
+  const canCancel = status === "PENDING" || status === "OVERDUE" || status === "CONFIRMED";
 
   // Close on click outside
   useEffect(() => {
@@ -323,7 +323,7 @@ export default function PatientTable({
                   <td className="whitespace-nowrap px-3 py-2">
                     <div className="flex items-center gap-1.5">
                       {/* PENDING or OVERDUE → Confirm button (patient arrived) */}
-                      {(a.status === "PENDING" || a.status === "OVERDUE" || a.status === "TENTATIVE") && (
+                      {(a.status === "PENDING" || a.status === "OVERDUE") && (
                         <button
                           type="button"
                           onClick={() => onConfirmAppointment(a)}

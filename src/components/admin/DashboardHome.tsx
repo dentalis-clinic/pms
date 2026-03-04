@@ -126,7 +126,7 @@ export default function DashboardHome() {
 
                   {/* Quick actions */}
                   <div className="mt-3 flex gap-2">
-                    {a.status === "TENTATIVE" && (
+                    {(a.status === "PENDING" || a.status === "OVERDUE") && (
                       <Button
                         size="sm"
                         onClick={() => openConfirmAppointment(a)}

@@ -3,6 +3,7 @@ import { z } from "zod/v4";
 import { createClient } from "@supabase/supabase-js";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { validateOrigin } from "@/lib/utils/csrf";
 import { env } from "@/env";
 
 const createAdminSchema = z.object({
@@ -41,6 +42,9 @@ export async function GET() {
 // --- POST: Create admin ---
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = validateOrigin(request);
+    if (csrfError) return csrfError;
+
     const auth = await requireAdmin();
     if (auth.error) return auth.error;
 

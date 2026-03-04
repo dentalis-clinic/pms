@@ -20,7 +20,7 @@ export async function GET() {
           },
         }),
         prisma.appointment.count({
-          where: { status: "TENTATIVE" },
+          where: { status: { in: ["PENDING", "OVERDUE"] } },
         }),
         prisma.appointment.count({
           where: {

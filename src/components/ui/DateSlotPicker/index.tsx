@@ -5,7 +5,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { DateTime } from "luxon";
 import { DateSelector } from "./DateSelector";
 import { SlotGrid } from "./SlotGrid";
@@ -60,13 +60,15 @@ export const DateSlotPicker: React.FC<DateSlotPickerProps> = ({
     parsedValue?.time || null
   );
 
-  // Update selected date/time when value prop changes externally
-  useEffect(() => {
+  // Sync state when value prop changes (React-recommended render-phase pattern)
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
     if (parsedValue) {
       setSelectedDate(parsedValue.date);
       setSelectedTime(parsedValue.time);
     }
-  }, [parsedValue]);
+  }
 
   // Handle date selection
   const handleDateSelect = (date: string) => {

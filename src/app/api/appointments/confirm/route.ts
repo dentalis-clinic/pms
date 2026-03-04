@@ -7,15 +7,21 @@ import { confirmAppointmentSchema } from "@/lib/validations/appointment";
 import { normalizePhoneNumber } from "@/lib/utils/phone";
 import { findOrCreatePatient } from "@/lib/utils/patient-id";
 import { checkSlotConflict, SlotConflictError } from "@/lib/utils/slot-conflict";
+import { validateOrigin } from "@/lib/utils/csrf";
 import type { Sex } from "@/generated/prisma/client";
 
 /** Valid status transitions (subset used here). */
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  TENTATIVE: ["CONFIRMED", "CANCELLED"],
+  PENDING: ["CONFIRMED", "CANCELLED"],
+  OVERDUE: ["CONFIRMED", "CANCELLED"],
+  TENTATIVE: ["CONFIRMED", "CANCELLED"], // DEPRECATED: backward compat
 };
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = validateOrigin(request);
+    if (csrfError) return csrfError;
+
     const auth = await requireAdmin();
     if (auth.error) return auth.error;
     const { admin, user } = auth;

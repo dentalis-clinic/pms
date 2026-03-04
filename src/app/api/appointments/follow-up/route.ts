@@ -4,9 +4,13 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { followUpSchema } from "@/lib/validations/appointment";
 import { createAppointmentAtomic, SlotConflictError } from "@/lib/utils/slot-conflict";
+import { validateOrigin } from "@/lib/utils/csrf";
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = validateOrigin(request);
+    if (csrfError) return csrfError;
+
     const auth = await requireAdmin();
     if (auth.error) return auth.error;
     const { user } = auth;
@@ -44,7 +48,7 @@ export async function POST(request: NextRequest) {
         type: "FOLLOW_UP",
         bookingChannel: "WALK_IN",
         visitType: "FOLLOW_UP",
-        status: "TENTATIVE",
+        status: "PENDING",
         preferredDateTime: data.preferredDateTime,
         reasonForVisit: data.reasonForVisit || null,
         submittedBy: "ADMIN",

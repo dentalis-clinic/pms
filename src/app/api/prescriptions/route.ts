@@ -4,9 +4,13 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { prescriptionSchema } from "@/lib/validations/prescription";
 import { createPrescriptionWithId } from "@/lib/utils/prescription-id";
+import { validateOrigin } from "@/lib/utils/csrf";
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = validateOrigin(request);
+    if (csrfError) return csrfError;
+
     const auth = await requireAdmin();
     if (auth.error) return auth.error;
     const { user } = auth;

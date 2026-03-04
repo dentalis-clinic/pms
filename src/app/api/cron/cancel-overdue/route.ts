@@ -12,11 +12,15 @@
  * curl http://localhost:3000/api/cron/cancel-overdue
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cancelOverdueAppointments } from "@/lib/jobs/cancel-overdue-appointments";
+import { requireCronSecret } from "@/lib/auth/require-cron-secret";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authError = requireCronSecret(request);
+    if (authError) return authError;
+
     const result = await cancelOverdueAppointments();
 
     return NextResponse.json(result, {

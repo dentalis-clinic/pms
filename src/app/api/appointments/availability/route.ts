@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
         lte: endOfDay,
       },
       status: {
-        in: ["PENDING", "TENTATIVE", "CONFIRMED", "COMPLETED"],
+        in: ["PENDING", "OVERDUE", "CONFIRMED", "COMPLETED"],
       },
     };
 

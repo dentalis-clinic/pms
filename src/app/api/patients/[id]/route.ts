@@ -4,12 +4,16 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { patchPatientSchema } from "@/lib/validations/appointment";
 import { normalizePhoneNumber } from "@/lib/utils/phone";
+import { validateOrigin } from "@/lib/utils/csrf";
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const csrfError = validateOrigin(request);
+    if (csrfError) return csrfError;
+
     const { id } = await params;
 
     const auth = await requireAdmin();

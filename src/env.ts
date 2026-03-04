@@ -10,6 +10,9 @@ const serverSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 
+  // Cron job secret (Vercel sends this as Authorization: Bearer <secret>)
+  CRON_SECRET: z.string().optional(),
+
   // Optional rate limiting
   UPSTASH_REDIS_URL: z.string().optional(),
   UPSTASH_REDIS_TOKEN: z.string().optional(),

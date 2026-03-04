@@ -77,7 +77,7 @@ const publicBookingBaseSchema = z.object({
       });
       return isSlotAligned(datetime);
     }, "Please select a valid time slot"),
-  existingPatientId: z.string().uuid("Invalid patient ID").optional(),
+  existingPatientId: z.string().min(1, "Invalid patient ID").optional(),
 });
 
 // --- Public booking (patient self-service) ---

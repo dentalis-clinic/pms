@@ -27,10 +27,14 @@ export async function checkRateLimit(
 
 // --- Upstash Redis implementation ---
 
-let redisLimiter: InstanceType<typeof import("@upstash/ratelimit").Ratelimit> | null = null;
+const redisLimiterCache = new Map<string, InstanceType<typeof import("@upstash/ratelimit").Ratelimit>>();
 
 async function getRedisLimiter(max: number) {
-  if (redisLimiter) return redisLimiter;
+  const windowMs = env.RATE_LIMIT_WINDOW_MS;
+  const cacheKey = `${max}:${windowMs}`;
+
+  const cached = redisLimiterCache.get(cacheKey);
+  if (cached) return cached;
 
   const { Ratelimit } = await import("@upstash/ratelimit");
   const { Redis } = await import("@upstash/redis");
@@ -40,13 +44,14 @@ async function getRedisLimiter(max: number) {
     token: env.UPSTASH_REDIS_TOKEN!,
   });
 
-  redisLimiter = new Ratelimit({
+  const limiter = new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(max, `${env.RATE_LIMIT_WINDOW_MS}ms`),
-    prefix: "ratelimit",
+    limiter: Ratelimit.slidingWindow(max, `${windowMs}ms`),
+    prefix: `ratelimit:${max}`,
   });
 
-  return redisLimiter;
+  redisLimiterCache.set(cacheKey, limiter);
+  return limiter;
 }
 
 async function checkRateLimitRedis(key: string, max: number): Promise<RateLimitResult> {

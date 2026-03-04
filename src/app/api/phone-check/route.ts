@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Query patients + their latest TENTATIVE appointment (future only)
+    // Query patients + their latest PENDING/OVERDUE appointment (future only)
     const patients = await prisma.patient.findMany({
       where: { phone: normalizedPhone },
       select: {
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
         name: true,
         appointments: {
           where: {
-            status: "TENTATIVE",
+            status: { in: ["PENDING", "OVERDUE"] },
             preferredDateTime: { gt: new Date() },
           },
           orderBy: { preferredDateTime: "desc" },
