@@ -105,6 +105,7 @@ model Appointment {
   @@index([patientId])
   @@index([status])
   @@index([preferredDateTime])
+  @@index([preferredDateTime, status]) // Composite: "upcoming" tab (date + non-cancelled)
   @@index([createdAt])
   @@index([bookingChannel])
   @@index([visitType])

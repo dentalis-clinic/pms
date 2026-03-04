@@ -51,7 +51,13 @@ export interface AppointmentRow {
   updatedAt: string;
   // Joined
   patient: PatientRow;
-  prescription?: PrescriptionRow | null;
+  prescription?: PrescriptionSummary | null;
+}
+
+// Lightweight prescription info returned by the list endpoint (avoids transferring full JSONB)
+export interface PrescriptionSummary {
+  id: string;
+  prescriptionId: string;
 }
 
 // --- Prescription ---

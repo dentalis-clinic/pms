@@ -69,7 +69,8 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         patient: true,
-        prescription: true,
+        // Only fetch prescription ID — the list view just needs to know if one exists
+        prescription: { select: { id: true, prescriptionId: true } },
       },
       orderBy,
     });
@@ -86,15 +87,8 @@ export async function GET(request: NextRequest) {
         updatedAt: a.patient.updatedAt.toISOString(),
         dateOfBirth: a.patient.dateOfBirth?.toISOString() ?? null,
       },
-      prescription: a.prescription
-        ? {
-            ...a.prescription,
-            createdAt: a.prescription.createdAt.toISOString(),
-            updatedAt: a.prescription.updatedAt.toISOString(),
-            nextVisitDate:
-              a.prescription.nextVisitDate?.toISOString() ?? null,
-          }
-        : null,
+      // Only id + prescriptionId are selected — no date serialization needed
+      prescription: a.prescription ?? null,
     }));
 
     return NextResponse.json({ success: true, appointments: serialized });

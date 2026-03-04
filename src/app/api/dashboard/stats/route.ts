@@ -3,6 +3,13 @@ import { DateTime } from "luxon";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
 
+interface StatsRow {
+  today_appointments: bigint;
+  pending_confirmations: bigint;
+  patients_seen_today: bigint;
+  total_patients: bigint;
+}
+
 export async function GET() {
   try {
     const auth = await requireAdmin();
@@ -12,32 +19,32 @@ export async function GET() {
     const todayStart = now.startOf("day").toJSDate();
     const tomorrowStart = now.plus({ days: 1 }).startOf("day").toJSDate();
 
-    const [todayAppointments, pendingConfirmations, patientsSeenToday, totalPatients] =
-      await Promise.all([
-        prisma.appointment.count({
-          where: {
-            preferredDateTime: { gte: todayStart, lt: tomorrowStart },
-          },
-        }),
-        prisma.appointment.count({
-          where: { status: { in: ["PENDING", "OVERDUE"] } },
-        }),
-        prisma.appointment.count({
-          where: {
-            status: "COMPLETED",
-            preferredDateTime: { gte: todayStart, lt: tomorrowStart },
-          },
-        }),
-        prisma.patient.count(),
-      ]);
+    // Single query with conditional aggregation — replaces 4 separate COUNT queries
+    const [stats] = await prisma.$queryRaw<StatsRow[]>`
+      SELECT
+        COUNT(*) FILTER (
+          WHERE "preferredDateTime" >= ${todayStart}
+            AND "preferredDateTime" < ${tomorrowStart}
+        ) AS today_appointments,
+        COUNT(*) FILTER (
+          WHERE status IN ('PENDING', 'OVERDUE')
+        ) AS pending_confirmations,
+        COUNT(*) FILTER (
+          WHERE status = 'COMPLETED'
+            AND "preferredDateTime" >= ${todayStart}
+            AND "preferredDateTime" < ${tomorrowStart}
+        ) AS patients_seen_today,
+        (SELECT COUNT(*) FROM patients) AS total_patients
+      FROM appointments
+    `;
 
     return NextResponse.json({
       success: true,
       stats: {
-        todayAppointments,
-        pendingConfirmations,
-        patientsSeenToday,
-        totalPatients,
+        todayAppointments: Number(stats.today_appointments),
+        pendingConfirmations: Number(stats.pending_confirmations),
+        patientsSeenToday: Number(stats.patients_seen_today),
+        totalPatients: Number(stats.total_patients),
       },
     });
   } catch (error) {
