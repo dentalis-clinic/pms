@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
 import { formatISTDateTime } from "@/lib/utils/date";
 import { STATUS_BADGE, TYPE_LABEL } from "@/lib/constants/appointment";
 import { Badge, Button } from "@/components/ui";
@@ -8,11 +9,11 @@ import { useDashboard } from "./DashboardContext";
 import type { DashboardStats } from "@/types/dashboard";
 import type { AppointmentRow } from "@/types/patient";
 
-const KPI_LABELS: { key: keyof DashboardStats; label: string }[] = [
-  { key: "todayAppointments", label: "Today's Appointments" },
-  { key: "pendingConfirmations", label: "Pending Confirmations" },
-  { key: "patientsSeenToday", label: "Patients Seen Today" },
-  { key: "totalPatients", label: "Total Patients" },
+const KPI_LABELS: { key: keyof DashboardStats; label: string; href: string }[] = [
+  { key: "todayAppointments", label: "Today's Appointments", href: "/admin/dashboard/appointments?tab=today" },
+  { key: "pendingConfirmations", label: "Pending Confirmations", href: "/admin/dashboard/appointments?status=PENDING" },
+  { key: "patientsSeenToday", label: "Patients Seen Today", href: "/admin/dashboard/appointments?tab=today&status=CONFIRMED" },
+  { key: "totalPatients", label: "Total Patients", href: "/admin/dashboard/appointments?tab=all" },
 ];
 
 interface DashboardHomeProps {
@@ -59,29 +60,24 @@ export default function DashboardHome({
       isFirstRender.current = false;
       return;
     }
-
-    // Defer refresh outside the effect call stack to satisfy set-state-in-effect lint rule.
-    const timer = setTimeout(() => {
-      void fetchData();
-    }, 0);
-
-    return () => clearTimeout(timer);
+    fetchData();
   }, [fetchData, refreshKey]);
 
   return (
     <div className="space-y-6">
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {KPI_LABELS.map(({ key, label }) => (
-          <div
+        {KPI_LABELS.map(({ key, label, href }) => (
+          <Link
             key={key}
-            className="rounded-lg border border-border-primary bg-surface-primary p-4 shadow-sm"
+            href={href}
+            className="rounded-lg border border-border-primary bg-surface-primary p-4 shadow-sm transition-colors hover:border-border-secondary hover:bg-surface-secondary"
           >
             <p className="text-sm font-medium text-text-hint">{label}</p>
             <p className="mt-1 text-2xl font-semibold text-text-primary">
               {stats[key] ?? 0}
             </p>
-          </div>
+          </Link>
         ))}
       </div>
 

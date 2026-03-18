@@ -19,6 +19,7 @@ interface BlankPrescriptionTemplateProps {
       email: string | null;
       dateOfBirth: string | null;
       sex: string | null;
+      address: string | null;
     };
   };
 }
@@ -71,7 +72,6 @@ export default function BlankPrescriptionTemplate({
       });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
 
       const imgProps = pdf.getImageProperties(imgData);
       const ratio = imgProps.width / imgProps.height;
@@ -134,10 +134,19 @@ export default function BlankPrescriptionTemplate({
       {/* Prescription content — A4-optimized */}
       <div
         ref={prescriptionRef}
-        className="print-avoid-break mx-auto max-w-[210mm] rounded-lg border border-border-primary bg-white p-8 shadow-sm print:border-none print:p-0 print:shadow-none"
+        className="relative print-avoid-break mx-auto max-w-[210mm] rounded-lg border border-border-primary bg-white p-8 shadow-sm print:border-none print:p-0 print:shadow-none overflow-hidden"
       >
+        {/* Diagonal Watermark */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="text-[4rem] font-bold text-brand-100 opacity-30 select-none whitespace-nowrap" style={{
+            transform: 'rotate(-45deg)',
+            transformOrigin: 'center',
+          }}>
+            Dentalis Dental Care By Jamians
+          </div>
+        </div>
         {/* Header */}
-        <div className="mb-4 border-b-2 border-gray-800 pb-2 print-avoid-break">
+        <div className="relative z-10 mb-4 border-b-2 border-gray-800 pb-2 print-avoid-break">
           <div className="flex items-start justify-between mb-4">
             <div className="flex flex-col items-start">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -157,7 +166,7 @@ export default function BlankPrescriptionTemplate({
               <p className="text-sm text-gray-600">
                 {addr.city}, {addr.state} - {addr.pincode}
               </p>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">
                 <span className="font-semibold">Timing: <span className="text-gray-900">{CLINIC_CONFIG.timing}</span></span>
               </p>
             </div>
@@ -170,7 +179,7 @@ export default function BlankPrescriptionTemplate({
         </div>
 
         {/* Patient Info (auto-filled) */}
-        <div className="mb-4 grid grid-cols-2 gap-4 text-sm print-avoid-break">
+        <div className="relative z-10 mb-4 grid grid-cols-2 gap-4 text-sm print-avoid-break">
           <div>
             <p>
               <span className="font-medium text-gray-700">Patient: </span>
@@ -196,6 +205,12 @@ export default function BlankPrescriptionTemplate({
               <span className="font-medium text-gray-700">Phone: </span>
               <span className="text-gray-900">{patient.phone}</span>
             </p>
+            {patient.address && (
+              <p>
+                <span className="font-medium text-gray-700">Address: </span>
+                <span className="text-gray-900">{patient.address}</span>
+              </p>
+            )}
             {patient.email && (
               <p>
                 <span className="font-medium text-gray-700">Email: </span>
@@ -217,97 +232,60 @@ export default function BlankPrescriptionTemplate({
           </div>
         </div>
 
-        <hr className="mb-4 border-gray-300" />
+        <hr className="relative z-10 mb-4 border-gray-300" />
 
-        {/* Chief Complaint (auto-filled from appointment.reasonForVisit) */}
-        <div className="mb-6 print-avoid-break">
+        {/* Chief Complain */}
+        <div className="relative z-10 mb-4 print-avoid-break">
           <h2 className="mb-1 text-sm font-semibold uppercase text-gray-700">
-            Chief Complaint
+            Chief Complain
           </h2>
-          <p className="text-sm text-gray-900">
-            {appointment.reasonForVisit || "Not specified"}
-          </p>
+          <div className="min-h-[40px]"></div>
         </div>
 
-        {/* Diagnosis (BLANK with dotted underlines) */}
-        <div className="mb-6 print-avoid-break">
-          <h2 className="mb-2 text-sm font-semibold uppercase text-gray-700">
-            Diagnosis
+        {/* Medical History */}
+        <div className="relative z-10 mb-4 print-avoid-break">
+          <h2 className="mb-1 text-sm font-semibold uppercase text-gray-700">
+            Medical History
           </h2>
-          <div className="space-y-3">
-            <div className="h-5 border-b border-dotted border-gray-400"></div>
-            <div className="h-5 border-b border-dotted border-gray-400"></div>
+          <div className="min-h-[40px]"></div>
+        </div>
+
+        {/* Examinations */}
+        <div className="relative z-10 mb-4 print-avoid-break">
+          <h2 className="mb-1 text-sm font-semibold uppercase text-gray-700">
+            Examinations
+          </h2>
+          <div className="min-h-[50px]"></div>
+        </div>
+
+        {/* Investigations */}
+        <div className="relative z-10 mb-4 print-avoid-break">
+          <h2 className="mb-1 text-sm font-semibold uppercase text-gray-700">
+            Investigations
+          </h2>
+          <div className="min-h-[40px]"></div>
+        </div>
+
+        {/* Rx (Medications) */}
+        <div className="relative z-10 mb-4 print-avoid-break">
+          <h2 className="mb-1 text-sm font-semibold uppercase text-gray-700">
+            <span className="text-4xl leading-none">℞</span>
+          </h2>
+          <div className="min-h-[80px]"></div>
+        </div>
+
+        {/* Next Appointment & Signature area */}
+        <div className="relative z-10 mt-8 flex justify-between print-avoid-break">
+          {/* Next Appointment - Left side */}
+          <div>
+            <h2 className="mb-2 text-sm font-semibold uppercase text-gray-700">
+              Next Appointment:
+            </h2>
           </div>
-        </div>
 
-        {/* Medications (BLANK table with 5 pre-printed rows) */}
-        <div className="mb-6 print-avoid-break">
-          <h2 className="mb-2 text-sm font-semibold uppercase text-gray-700">
-            Medications
-          </h2>
-          <table className="w-full border-collapse border border-gray-400 text-sm">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border border-gray-400 px-2 py-1.5 text-left font-medium text-gray-700 w-10">
-                  #
-                </th>
-                <th className="border border-gray-400 px-2 py-1.5 text-left font-medium text-gray-700">
-                  Drug Name
-                </th>
-                <th className="border border-gray-400 px-2 py-1.5 text-left font-medium text-gray-700 w-24">
-                  Dosage
-                </th>
-                <th className="border border-gray-400 px-2 py-1.5 text-left font-medium text-gray-700 w-32">
-                  Frequency
-                </th>
-                <th className="border border-gray-400 px-2 py-1.5 text-left font-medium text-gray-700 w-24">
-                  Duration
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {[1, 2, 3, 4, 5].map((num) => (
-                <tr key={num}>
-                  <td className="border border-gray-400 px-2 py-3 text-center text-gray-400">
-                    {num}
-                  </td>
-                  <td className="border border-gray-400 px-2 py-3"></td>
-                  <td className="border border-gray-400 px-2 py-3"></td>
-                  <td className="border border-gray-400 px-2 py-3"></td>
-                  <td className="border border-gray-400 px-2 py-3"></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Treatment Plan / Procedures (BLANK) */}
-        <div className="mb-6 print-avoid-break">
-          <h2 className="mb-2 text-sm font-semibold uppercase text-gray-700">
-            Treatment Plan / Procedures
-          </h2>
-          <div className="space-y-3">
-            <div className="h-5 border-b border-dotted border-gray-400"></div>
-            <div className="h-5 border-b border-dotted border-gray-400"></div>
-            <div className="h-5 border-b border-dotted border-gray-400"></div>
-          </div>
-        </div>
-
-        {/* Advice / Instructions (BLANK) */}
-        <div className="mb-8 print-avoid-break">
-          <h2 className="mb-2 text-sm font-semibold uppercase text-gray-700">
-            Advice / Instructions
-          </h2>
-          <div className="space-y-3">
-            <div className="h-5 border-b border-dotted border-gray-400"></div>
-            <div className="h-5 border-b border-dotted border-gray-400"></div>
-          </div>
-        </div>
-
-        {/* Signature area (BLANK) */}
-        <div className="mt-12 flex justify-end print-avoid-break">
+          {/* Signature - Right side */}
           <div className="text-center">
-            <div className="mb-12 w-48 border-b border-gray-400" />
+            <div className="w-48 border-b border-gray-400 mb-2" />
             <p className="text-sm font-semibold text-gray-900">
               {CLINIC_CONFIG.doctorName}
             </p>
@@ -318,7 +296,7 @@ export default function BlankPrescriptionTemplate({
         </div>
 
         {/* Footer */}
-        <div className="mt-8 border-t-2 border-gray-800 pt-3 text-center print-avoid-break">
+        <div className="relative z-10 mt-8 border-t-2 border-gray-800 pt-3 text-center print-avoid-break">
           <p className="text-xs text-gray-700 font-bold">
             {CLINIC_CONFIG.phones.join(" | ")}
           </p>

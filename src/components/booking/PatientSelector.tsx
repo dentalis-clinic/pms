@@ -98,11 +98,10 @@ export function PatientSelector({
           {patients.map((p) => (
             <label
               key={p.id}
-              className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 transition-colors ${
-                p.hasPending
+              className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 transition-colors ${p.hasPending
                   ? "border-border-warning/40 bg-surface-warning/30"
                   : "border-border-secondary hover:bg-surface-secondary"
-              }`}
+                }`}
             >
               <input
                 type="radio"
@@ -158,8 +157,7 @@ function SinglePendingBlock({
             : ""}
         </p>
         <p className="mt-2 text-xs">
-          The clinic will confirm your appointment. To reschedule or cancel,
-          please contact us at {CLINIC_CONFIG.phones[0]}.
+          To reschedule or cancel, please contact us at {CLINIC_CONFIG.phones[0]}.
         </p>
       </Alert>
       <Button

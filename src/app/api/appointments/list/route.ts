@@ -20,18 +20,6 @@ export async function GET(request: NextRequest) {
     const dateFilter = searchParams.get("dateFilter") ?? "all";
     const sortBy = searchParams.get("sortBy") ?? "createdAt";
     const sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
-    const pageParam = Number.parseInt(searchParams.get("page") ?? "1", 10);
-    const pageSizeParam = Number.parseInt(
-      searchParams.get("pageSize") ?? "50",
-      10
-    );
-    const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
-    const pageSize =
-      Number.isFinite(pageSizeParam) && pageSizeParam > 0
-        ? Math.min(pageSizeParam, 200)
-        : 50;
-    const usePagination =
-      searchParams.has("page") || searchParams.has("pageSize");
 
     // Whitelist sortable columns
     const allowedSortColumns: Record<string, Record<string, string>> = {
@@ -77,50 +65,15 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const rows = await prisma.appointment.findMany({
+    const appointments = await prisma.appointment.findMany({
       where,
-      select: {
-        id: true,
-        patientId: true,
-        type: true,
-        bookingChannel: true,
-        visitType: true,
-        priority: true,
-        status: true,
-        preferredDateTime: true,
-        reasonForVisit: true,
-        submittedBy: true,
-        adminUserId: true,
-        notes: true,
-        createdAt: true,
-        updatedAt: true,
-        patient: {
-          select: {
-            id: true,
-            patientId: true,
-            name: true,
-            phone: true,
-            email: true,
-            dateOfBirth: true,
-            sex: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        },
+      include: {
+        patient: true,
         // Only fetch prescription ID — the list view just needs to know if one exists
         prescription: { select: { id: true, prescriptionId: true } },
       },
       orderBy,
-      ...(usePagination
-        ? {
-            skip: (page - 1) * pageSize,
-            take: pageSize + 1, // fetch one extra row to compute hasMore
-          }
-        : {}),
     });
-
-    const hasMore = usePagination && rows.length > pageSize;
-    const appointments = usePagination ? rows.slice(0, pageSize) : rows;
 
     // Serialize dates
     const serialized = appointments.map((a) => ({
@@ -138,17 +91,7 @@ export async function GET(request: NextRequest) {
       prescription: a.prescription ?? null,
     }));
 
-    return NextResponse.json({
-      success: true,
-      appointments: serialized,
-      pagination: usePagination
-        ? {
-            page,
-            pageSize,
-            hasMore,
-          }
-        : null,
-    });
+    return NextResponse.json({ success: true, appointments: serialized });
   } catch (error) {
     console.error("GET /api/appointments/list error:", error);
     return NextResponse.json(

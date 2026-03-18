@@ -48,6 +48,7 @@ export default async function PrescriptionPage({
         email: prescription.appointment.patient.email,
         dateOfBirth:
           prescription.appointment.patient.dateOfBirth?.toISOString() ?? null,
+        address: prescription.appointment.patient.address ?? null,
       },
     },
   };

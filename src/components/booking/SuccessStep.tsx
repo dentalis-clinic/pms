@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui";
 import { formatISTDateTime } from "@/lib/utils/date";
+import { CLINIC_CONFIG } from "@/lib/config/clinic";
 
 interface SuccessStepProps {
   patientId: string;
@@ -17,20 +18,22 @@ export function SuccessStep({
   return (
     <div className="rounded-lg border border-border-success/20 bg-surface-success p-6 text-center">
       <div className="mb-2 text-lg font-semibold text-text-success">
-        Appointment Tentatively Booked
+        Appointment Booked
       </div>
       <p className="mb-3 text-sm text-text-success">
-        Your appointment is tentatively scheduled for:
+        Your appointment is scheduled for:
       </p>
       <div className="mb-3 text-lg font-bold text-text-success">
         {formatISTDateTime(new Date(preferredDateTime))}
       </div>
       <p className="mb-4 text-sm text-text-success">
-        The doctor will confirm your appointment based on availability. You may
-        be contacted on your phone for confirmation.
+        Please arrive <span className="font-bold">15 mins</span> prior to your scheduled appointment to complete registration formalities and avoid any waiting rush.
+      </p>
+      <p className="mb-4 text-sm text-text-success">
+        For any queries or rescheduling, please contact us at {CLINIC_CONFIG.phones[0]}.
       </p>
       <p className="mb-4 text-xs text-text-success/70">
-        Reference: {patientId}
+        Patient ID: {patientId}
       </p>
       <Button variant="success" onClick={onReset}>
         Book Another Appointment

@@ -12,6 +12,7 @@ interface PatientTableProps {
   onRefresh: () => void;
   highlightId?: string;
   onConfirmAppointment: (appointment: AppointmentRow) => void;
+  search?: string;
 }
 
 type SortKey = "patientId" | "name" | "preferredDateTime" | "createdAt" | "status";
@@ -158,8 +159,10 @@ export default function PatientTable({
   onRefresh,
   highlightId,
   onConfirmAppointment,
+  search: externalSearch,
 }: PatientTableProps) {
-  const [search, setSearch] = useState("");
+  const [internalSearch, setInternalSearch] = useState("");
+  const search = externalSearch ?? internalSearch;
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortAsc, setSortAsc] = useState(false);
 
@@ -227,13 +230,15 @@ export default function PatientTable({
 
   return (
     <div className="space-y-3">
-      <Input
-        type="text"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search by name, phone, or patient ID..."
-        className="max-w-sm"
-      />
+      {externalSearch === undefined && (
+        <Input
+          type="text"
+          value={internalSearch}
+          onChange={(e) => setInternalSearch(e.target.value)}
+          placeholder="Search by name, phone, or patient ID..."
+          className="max-w-sm"
+        />
+      )}
 
       <div className="overflow-x-auto rounded-lg border border-border-primary">
         <table className="min-w-full divide-y divide-border-primary">

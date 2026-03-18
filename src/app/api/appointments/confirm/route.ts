@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
         patientUpdates.name = data.name;
       if (data.sex) patientUpdates.sex = data.sex as Sex;
       if (data.email) patientUpdates.email = data.email;
+      if (data.address) patientUpdates.address = data.address;
       if (data.dateOfBirth)
         patientUpdates.dateOfBirth = data.dateOfBirth;
 
@@ -143,6 +144,7 @@ export async function POST(request: NextRequest) {
       const patientUpdates: Record<string, unknown> = {};
       if (data.sex) patientUpdates.sex = data.sex as Sex;
       if (data.email && !patient.email) patientUpdates.email = data.email;
+      if (data.address && !patient.address) patientUpdates.address = data.address;
       if (data.dateOfBirth && !patient.dateOfBirth)
         patientUpdates.dateOfBirth = data.dateOfBirth;
 
@@ -198,6 +200,7 @@ export async function POST(request: NextRequest) {
       email: data.email || null,
       dateOfBirth: data.dateOfBirth || null,
       sex: (data.sex as Sex) || null,
+      address: data.address || null,
     });
 
     // Create appointment atomically with slot conflict check

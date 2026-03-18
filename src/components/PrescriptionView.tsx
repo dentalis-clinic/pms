@@ -1,7 +1,7 @@
 "use client";
 
 import { CLINIC_CONFIG } from "@/lib/config/clinic";
-import { formatISTDate, formatISTDateTime } from "@/lib/utils/date";
+import { formatISTDate } from "@/lib/utils/date";
 import type { Medication } from "@/types/patient";
 
 interface PrescriptionViewProps {
@@ -22,6 +22,7 @@ interface PrescriptionViewProps {
         phone: string;
         email: string | null;
         dateOfBirth: string | null;
+        address: string | null;
       };
     };
   };
@@ -63,9 +64,19 @@ export default function PrescriptionView({ prescription }: PrescriptionViewProps
       </div>
 
       {/* Prescription content — A4-optimized */}
-      <div className="mx-auto max-w-[210mm] rounded-lg border border-border-primary bg-white p-8 shadow-sm print:border-none print:shadow-none print:p-0">
+      <div className="relative mx-auto max-w-[210mm] rounded-lg border border-border-primary bg-white p-8 shadow-sm print:border-none print:shadow-none print:p-0 overflow-hidden">
+        {/* Diagonal Watermark */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="text-[4rem] font-bold text-brand-100 opacity-30 select-none whitespace-nowrap" style={{
+            transform: 'rotate(-45deg)',
+            transformOrigin: 'center',
+          }}>
+            Dentalis Dental Care By Jamians
+          </div>
+        </div>
+
         {/* Header */}
-        <div className="border-b-2 border-gray-800 pb-4 mb-4">
+        <div className="relative z-10 border-b-2 border-gray-800 pb-4 mb-6">
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -84,7 +95,7 @@ export default function PrescriptionView({ prescription }: PrescriptionViewProps
                 <p className="text-sm text-gray-600">
                   {addr.city}, {addr.state} - {addr.pincode}
                 </p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600 whitespace-pre-line">
                   Timing: {CLINIC_CONFIG.timing}
                 </p>
               </div>
@@ -113,7 +124,7 @@ export default function PrescriptionView({ prescription }: PrescriptionViewProps
         </div>
 
         {/* Patient Info + Prescription ID */}
-        <div className="mb-4 grid grid-cols-2 gap-4 text-sm">
+        <div className="relative z-10 mb-6 grid grid-cols-2 gap-4 text-sm">
           <div>
             <p>
               <span className="font-medium text-gray-700">Patient: </span>
@@ -131,6 +142,12 @@ export default function PrescriptionView({ prescription }: PrescriptionViewProps
               <span className="font-medium text-gray-700">Phone: </span>
               <span className="text-gray-900">{patient.phone}</span>
             </p>
+            {patient.address && (
+              <p>
+                <span className="font-medium text-gray-700">Address: </span>
+                <span className="text-gray-900">{patient.address}</span>
+              </p>
+            )}
             {patient.email && (
               <p>
                 <span className="font-medium text-gray-700">Email: </span>
@@ -160,105 +177,60 @@ export default function PrescriptionView({ prescription }: PrescriptionViewProps
           </div>
         </div>
 
-        <hr className="mb-4 border-gray-300" />
+        <hr className="relative z-10 mb-4 border-gray-300" />
 
-        {/* Diagnosis */}
-        <div className="mb-4">
+        {/* Chief Complain */}
+        <div className="relative z-10 mb-4">
           <h2 className="mb-1 text-sm font-semibold uppercase text-gray-700">
-            Diagnosis
+            Chief Complain
           </h2>
-          <p className="text-sm text-gray-900">{prescription.diagnosis}</p>
+          <div className="min-h-[40px]"></div>
         </div>
 
-        {/* Medications table */}
-        <div className="mb-4">
-          <h2 className="mb-2 text-sm font-semibold uppercase text-gray-700">
-            Medications
+        {/* Medical History */}
+        <div className="relative z-10 mb-4">
+          <h2 className="mb-1 text-sm font-semibold uppercase text-gray-700">
+            Medical History
           </h2>
-          <table className="w-full border-collapse border border-gray-400 text-sm">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border border-gray-400 px-3 py-1.5 text-left font-medium text-gray-700">
-                  #
-                </th>
-                <th className="border border-gray-400 px-3 py-1.5 text-left font-medium text-gray-700">
-                  Drug Name
-                </th>
-                <th className="border border-gray-400 px-3 py-1.5 text-left font-medium text-gray-700">
-                  Dosage
-                </th>
-                <th className="border border-gray-400 px-3 py-1.5 text-left font-medium text-gray-700">
-                  Frequency
-                </th>
-                <th className="border border-gray-400 px-3 py-1.5 text-left font-medium text-gray-700">
-                  Duration
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {prescription.medications.map((med, i) => (
-                <tr key={i}>
-                  <td className="border border-gray-400 px-3 py-1.5 text-gray-600">
-                    {i + 1}
-                  </td>
-                  <td className="border border-gray-400 px-3 py-1.5 text-gray-900">
-                    {med.drugName}
-                  </td>
-                  <td className="border border-gray-400 px-3 py-1.5 text-gray-900">
-                    {med.dosage}
-                  </td>
-                  <td className="border border-gray-400 px-3 py-1.5 text-gray-900">
-                    {med.frequency}
-                  </td>
-                  <td className="border border-gray-400 px-3 py-1.5 text-gray-900">
-                    {med.duration}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="min-h-[40px]"></div>
         </div>
 
-        {/* Treatment Plan */}
-        {prescription.treatmentPlan && (
-          <div className="mb-4">
-            <h2 className="mb-1 text-sm font-semibold uppercase text-gray-700">
-              Treatment Plan
-            </h2>
-            <p className="text-sm text-gray-900 whitespace-pre-line">
-              {prescription.treatmentPlan}
-            </p>
-          </div>
-        )}
+        {/* Examinations */}
+        <div className="relative z-10 mb-4">
+          <h2 className="mb-1 text-sm font-semibold uppercase text-gray-700">
+            Examinations
+          </h2>
+          <div className="min-h-[50px]"></div>
+        </div>
 
-        {/* Next Visit */}
-        {prescription.nextVisitDate && (
-          <div className="mb-4">
-            <h2 className="mb-1 text-sm font-semibold uppercase text-gray-700">
-              Next Visit
-            </h2>
-            <p className="text-sm text-gray-900">
-              {formatISTDate(new Date(prescription.nextVisitDate))}
-            </p>
-          </div>
-        )}
+        {/* Investigations */}
+        <div className="relative z-10 mb-4">
+          <h2 className="mb-1 text-sm font-semibold uppercase text-gray-700">
+            Investigations
+          </h2>
+          <div className="min-h-[40px]"></div>
+        </div>
 
-        {/* Advice */}
-        {prescription.advice && (
-          <div className="mb-4">
-            <h2 className="mb-1 text-sm font-semibold uppercase text-gray-700">
-              Advice / Instructions
-            </h2>
-            <p className="text-sm text-gray-900 whitespace-pre-line">
-              {prescription.advice}
-            </p>
-          </div>
-        )}
+        {/* Rx (Medications) */}
+        <div className="relative z-10 mb-4">
+          <h2 className="mb-1 text-sm font-semibold uppercase text-gray-700">
+            <span className="text-4xl leading-none">℞</span>
+          </h2>
+          <div className="min-h-[80px]"></div>
+        </div>
 
-        {/* Footer — Doctor signature */}
-        <div className="mt-12 flex justify-end">
+        {/* Next Appointment & Signature area */}
+        <div className="relative z-10 mt-8 flex justify-between">
+          {/* Next Appointment - Left side */}
+          <div>
+            <h2 className="mb-2 text-sm font-semibold uppercase text-gray-700">
+              Next Appointment:
+            </h2>
+          </div>
+
+          {/* Signature - Right side */}
           <div className="text-center">
-            <div className="mb-8 w-48 border-b border-gray-400" />
+            <div className="w-48 border-b border-gray-400 mb-2" />
             <p className="text-sm font-semibold text-gray-900">
               {prescription.prescribedBy.name}
             </p>
@@ -266,6 +238,16 @@ export default function PrescriptionView({ prescription }: PrescriptionViewProps
               {CLINIC_CONFIG.doctorQualifications}
             </p>
           </div>
+        </div>
+
+        {/* Footer */}
+        <div className="relative z-10 mt-8 border-t-2 border-gray-800 pt-3 text-center">
+          <p className="text-xs text-gray-700 font-bold">
+            {CLINIC_CONFIG.phones.join(" | ")}
+          </p>
+          <p className="text-xs text-gray-700">
+            {CLINIC_CONFIG.email} | {CLINIC_CONFIG.website}
+          </p>
         </div>
       </div>
     </div>

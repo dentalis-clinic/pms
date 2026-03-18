@@ -25,6 +25,7 @@ export default function AppointmentSlideOver() {
   const [sex, setSex] = useState<"MALE" | "FEMALE" | "OTHER" | "">("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [email, setEmail] = useState("");
+  const [address, setAddress] = useState("");
   const [preferredDateTime, setPreferredDateTime] = useState("");
   const [reasonForVisit, setReasonForVisit] = useState("");
   const [visitType, setVisitType] = useState<"NEW_CONSULTATION" | "FOLLOW_UP">(
@@ -80,6 +81,7 @@ export default function AppointmentSlideOver() {
           : ""
       );
       setEmail(appointment.patient.email ?? "");
+      setAddress(appointment.patient.address ?? "");
       setPreferredDateTime(
         DateTime.fromISO(appointment.preferredDateTime)
           .setZone("Asia/Kolkata")
@@ -93,6 +95,7 @@ export default function AppointmentSlideOver() {
       setSex("");
       setDateOfBirth("");
       setEmail("");
+      setAddress("");
       setPreferredDateTime(
         DateTime.now().setZone("Asia/Kolkata").toFormat("yyyy-MM-dd'T'HH:mm")
       );
@@ -217,6 +220,7 @@ export default function AppointmentSlideOver() {
         sex: sex || undefined,
         dateOfBirth: dateOfBirth || undefined,
         email: email || undefined,
+        address: address || undefined,
         preferredDateTime: new Date(preferredDateTime).toISOString(),
         reasonForVisit: reasonForVisit || undefined,
         allowOverride, // Include override flag for admin double-booking
@@ -422,6 +426,18 @@ export default function AppointmentSlideOver() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={submitting}
+              />
+            </FormField>
+
+            {/* Address */}
+            <FormField label="Address" htmlFor="address" hint="Optional">
+              <Textarea
+                id="address"
+                placeholder="Patient's address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                disabled={submitting}
+                rows={2}
               />
             </FormField>
           </fieldset>

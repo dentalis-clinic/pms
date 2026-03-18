@@ -44,6 +44,7 @@ export async function findOrCreatePatient(
     email?: string | null;
     dateOfBirth?: Date | null;
     sex?: Sex | null;
+    address?: string | null;
   }
 ): Promise<{ patientId: string; patient: { id: string; patientId: string }; isNew: boolean }> {
   const normalizedPhone = normalizePhoneNumber(data.phone);
@@ -63,6 +64,7 @@ export async function findOrCreatePatient(
     if (data.dateOfBirth && !existing.dateOfBirth)
       updates.dateOfBirth = data.dateOfBirth;
     if (data.sex && !existing.sex) updates.sex = data.sex;
+    if (data.address && !existing.address) updates.address = data.address;
 
     if (Object.keys(updates).length > 0) {
       await prisma.patient.update({
@@ -92,6 +94,7 @@ export async function findOrCreatePatient(
               email: data.email || null,
               dateOfBirth: data.dateOfBirth || null,
               sex: data.sex || null,
+              address: data.address || null,
             },
           });
           return { patientId, patient: { id: record.id, patientId } };

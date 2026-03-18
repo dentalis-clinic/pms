@@ -18,6 +18,7 @@ export interface PatientRow {
   email: string | null;
   dateOfBirth: string | null;
   sex: Sex | null;
+  address: string | null;
   createdAt: string;
   updatedAt: string;
 }

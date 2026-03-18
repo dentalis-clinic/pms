@@ -232,6 +232,12 @@ export const confirmAppointmentSchema = z.object({
     .email("Invalid email address")
     .optional()
     .or(z.literal("")),
+  address: z
+    .string()
+    .trim()
+    .max(500, "Address must be 500 characters or less")
+    .optional()
+    .or(z.literal("")),
   // Appointment fields (no 72-hour limit for admin)
   preferredDateTime: z
     .string()
