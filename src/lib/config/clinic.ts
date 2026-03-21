@@ -22,8 +22,5 @@ export const CLINIC_CONFIG = {
   ],
   email: "dentalis.delhi@gmail.com",
   website: "www.dentalis.co.in",
-  doctorName: "Dr. Umar Farooque",
-  doctorQualifications: "BDS, MDS (Prosthodontics)",
-  registrationNumber: "DL-12345",
   logo: "/logo.png",
 } as const;

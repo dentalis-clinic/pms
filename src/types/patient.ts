@@ -47,18 +47,38 @@ export interface AppointmentRow {
   reasonForVisit: string | null;
   submittedBy: SubmissionSource;
   adminUserId: string | null;
+  doctorId: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
   // Joined
   patient: PatientRow;
   prescription?: PrescriptionSummary | null;
+  doctor?: DoctorSummary | null;
 }
 
 // Lightweight prescription info returned by the list endpoint (avoids transferring full JSONB)
 export interface PrescriptionSummary {
   id: string;
   prescriptionId: string;
+}
+
+// --- Doctor ---
+
+export interface DoctorRow {
+  id: string;
+  name: string;
+  qualifications: string | null;
+  registrationNumber: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DoctorSummary {
+  id: string;
+  name: string;
+  qualifications: string | null;
 }
 
 // --- Prescription ---

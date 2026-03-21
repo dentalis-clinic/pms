@@ -269,6 +269,8 @@ export const confirmAppointmentSchema = z.object({
   visitType: visitTypeEnum.optional(), // NEW_CONSULTATION or FOLLOW_UP
   // NEW: Priority flag
   priority: priorityEnum.optional(), // ROUTINE, URGENT, or EMERGENCY
+  // Doctor selection (required — must select a treating doctor)
+  doctorId: z.string().uuid("Invalid doctor ID"),
 });
 
 export type ConfirmAppointmentInput = z.input<typeof confirmAppointmentSchema>;

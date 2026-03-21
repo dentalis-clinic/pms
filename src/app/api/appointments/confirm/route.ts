@@ -43,6 +43,17 @@ export async function POST(request: NextRequest) {
     // Extract allowOverride flag (admin can force double-booking)
     const allowOverride = body.allowOverride === true;
 
+    // Validate doctor exists and is active
+    const doctor = await prisma.doctor.findUnique({
+      where: { id: data.doctorId, isActive: true },
+    });
+    if (!doctor) {
+      return NextResponse.json(
+        { success: false, error: "Selected doctor not found or inactive." },
+        { status: 400 }
+      );
+    }
+
     // Normalize phone
     let normalizedPhone: string;
     try {
@@ -110,6 +121,7 @@ export async function POST(request: NextRequest) {
               reasonForVisit: data.reasonForVisit || appointment.reasonForVisit,
               preferredDateTime: data.preferredDateTime,
               adminUserId: admin.id,
+              doctorId: data.doctorId,
             },
           });
         },
@@ -176,6 +188,7 @@ export async function POST(request: NextRequest) {
               reasonForVisit: data.reasonForVisit || null,
               submittedBy: "ADMIN",
               adminUserId: admin.id,
+              doctorId: data.doctorId,
             },
           });
         },
@@ -221,6 +234,7 @@ export async function POST(request: NextRequest) {
             reasonForVisit: data.reasonForVisit || null,
             submittedBy: "ADMIN",
             adminUserId: admin.id,
+            doctorId: data.doctorId,
           },
         });
       },

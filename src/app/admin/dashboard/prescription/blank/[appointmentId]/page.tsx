@@ -12,7 +12,7 @@ export default async function BlankPrescriptionPage({ params }: PageProps) {
   // Fetch appointment with patient data
   const appointment = await prisma.appointment.findUnique({
     where: { id: appointmentId },
-    include: { patient: true },
+    include: { patient: true, doctor: true },
   });
 
   if (!appointment) {
@@ -33,6 +33,13 @@ export default async function BlankPrescriptionPage({ params }: PageProps) {
       sex: appointment.patient.sex,
       address: appointment.patient.address,
     },
+    doctor: appointment.doctor
+      ? {
+          name: appointment.doctor.name,
+          qualifications: appointment.doctor.qualifications,
+          registrationNumber: appointment.doctor.registrationNumber,
+        }
+      : null,
   };
 
   return <BlankPrescriptionTemplate appointment={serialized} />;

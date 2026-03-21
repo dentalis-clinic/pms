@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button, Input, FormField, Alert } from "@/components/ui";
 import { useDashboard } from "./DashboardContext";
+import type { DoctorRow } from "@/types/patient";
 
 interface AdminRow {
   id: string;
@@ -11,7 +12,7 @@ interface AdminRow {
   createdAt: string;
 }
 
-// --- Edit Modal ---
+// --- Edit Admin Modal ---
 function EditAdminModal({
   admin,
   onClose,
@@ -113,9 +114,135 @@ function EditAdminModal({
   );
 }
 
+// --- Edit Doctor Modal ---
+function EditDoctorModal({
+  doctor,
+  onClose,
+  onSaved,
+}: {
+  doctor: DoctorRow;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(doctor.name);
+  const [qualifications, setQualifications] = useState(doctor.qualifications ?? "");
+  const [registrationNumber, setRegistrationNumber] = useState(
+    doctor.registrationNumber ?? ""
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+
+    try {
+      const res = await fetch(`/api/doctors/${doctor.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          qualifications: qualifications.trim() || undefined,
+          registrationNumber: registrationNumber.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? "Failed to update doctor.");
+        return;
+      }
+
+      onSaved();
+      onClose();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-surface-overlay/30" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-sm rounded-lg border border-border-primary bg-surface-primary p-6 shadow-lg">
+        <h3 className="mb-4 text-base font-semibold text-text-primary">
+          Edit Doctor
+        </h3>
+
+        <form onSubmit={handleSave} className="space-y-4">
+          {error && <Alert variant="error">{error}</Alert>}
+
+          <FormField label="Name" htmlFor="edit-doctor-name">
+            <Input
+              id="edit-doctor-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              maxLength={200}
+              disabled={saving}
+            />
+          </FormField>
+
+          <FormField label="Qualifications" htmlFor="edit-doctor-qualifications" hint="Optional">
+            <Input
+              id="edit-doctor-qualifications"
+              type="text"
+              value={qualifications}
+              onChange={(e) => setQualifications(e.target.value)}
+              maxLength={500}
+              disabled={saving}
+            />
+          </FormField>
+
+          <FormField
+            label="Registration Number"
+            htmlFor="edit-doctor-reg"
+            hint="Optional"
+          >
+            <Input
+              id="edit-doctor-reg"
+              type="text"
+              value={registrationNumber}
+              onChange={(e) => setRegistrationNumber(e.target.value)}
+              maxLength={100}
+              disabled={saving}
+            />
+          </FormField>
+
+          <div className="flex gap-2">
+            <Button
+              type="submit"
+              size="sm"
+              disabled={saving}
+              loading={saving}
+              loadingText="Saving..."
+            >
+              Save
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={onClose}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // --- Main Settings View ---
 export default function SettingsView() {
   const { adminId: currentAdminId } = useDashboard();
+
+  // --- Admin state ---
   const [admins, setAdmins] = useState<AdminRow[]>([]);
   const [loadingAdmins, setLoadingAdmins] = useState(true);
   const [editingAdmin, setEditingAdmin] = useState<AdminRow | null>(null);
@@ -138,6 +265,25 @@ export default function SettingsView() {
     | { status: "error"; message: string }
   >({ status: "idle" });
 
+  // --- Doctor state ---
+  const [doctors, setDoctors] = useState<DoctorRow[]>([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(true);
+  const [editingDoctor, setEditingDoctor] = useState<DoctorRow | null>(null);
+  const [deletingDoctorId, setDeletingDoctorId] = useState<string | null>(null);
+  const [doctorDeleteError, setDoctorDeleteError] = useState("");
+
+  // Create doctor form state
+  const [doctorName, setDoctorName] = useState("");
+  const [doctorQualifications, setDoctorQualifications] = useState("");
+  const [doctorRegNumber, setDoctorRegNumber] = useState("");
+  const [createDoctorState, setCreateDoctorState] = useState<
+    | { status: "idle" }
+    | { status: "loading" }
+    | { status: "success"; name: string }
+    | { status: "error"; message: string }
+  >({ status: "idle" });
+
+  // --- Fetch admins ---
   const fetchAdmins = useCallback(async () => {
     try {
       setLoadingAdmins(true);
@@ -153,12 +299,29 @@ export default function SettingsView() {
     }
   }, []);
 
+  // --- Fetch doctors ---
+  const fetchDoctors = useCallback(async () => {
+    try {
+      setLoadingDoctors(true);
+      const res = await fetch("/api/doctors?includeInactive=true");
+      const data = await res.json();
+      if (data.success) {
+        setDoctors(data.doctors);
+      }
+    } catch (err) {
+      console.error("Failed to fetch doctors:", err);
+    } finally {
+      setLoadingDoctors(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchAdmins();
-  }, [fetchAdmins]);
+    fetchDoctors();
+  }, [fetchAdmins, fetchDoctors]);
 
   // --- Delete admin ---
-  async function handleDelete(id: string) {
+  async function handleDeleteAdmin(id: string) {
     setDeleteError("");
     setDeletingId(id);
 
@@ -249,11 +412,238 @@ export default function SettingsView() {
     }
   }
 
-  const isCreating = createState.status === "loading";
+  // --- Create doctor ---
+  async function handleCreateDoctor(e: React.FormEvent) {
+    e.preventDefault();
+    setCreateDoctorState({ status: "loading" });
+
+    try {
+      const res = await fetch("/api/doctors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: doctorName,
+          qualifications: doctorQualifications,
+          registrationNumber: doctorRegNumber || undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setCreateDoctorState({
+          status: "error",
+          message: data.error ?? "Failed to add doctor.",
+        });
+        return;
+      }
+
+      setCreateDoctorState({ status: "success", name: data.doctor.name });
+      setDoctorName("");
+      setDoctorQualifications("");
+      setDoctorRegNumber("");
+      fetchDoctors();
+    } catch {
+      setCreateDoctorState({
+        status: "error",
+        message: "Network error. Please try again.",
+      });
+    }
+  }
+
+  // --- Delete doctor ---
+  async function handleDeleteDoctor(id: string) {
+    setDoctorDeleteError("");
+    setDeletingDoctorId(id);
+
+    try {
+      const res = await fetch(`/api/doctors/${id}`, { method: "DELETE" });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setDoctorDeleteError(data.error ?? "Failed to delete doctor.");
+        setDeletingDoctorId(null);
+        return;
+      }
+
+      setDeletingDoctorId(null);
+      fetchDoctors();
+    } catch {
+      setDoctorDeleteError("Network error. Please try again.");
+      setDeletingDoctorId(null);
+    }
+  }
+
+  const isCreatingAdmin = createState.status === "loading";
+  const isCreatingDoctor = createDoctorState.status === "loading";
 
   return (
     <div className="space-y-8">
-      {/* Section 1: Admin Users List */}
+      {/* ====== Section: Doctors ====== */}
+      <div>
+        <h2 className="mb-3 text-lg font-semibold text-text-primary">
+          Doctors
+        </h2>
+
+        {doctorDeleteError && (
+          <Alert variant="error" className="mb-3">
+            {doctorDeleteError}
+          </Alert>
+        )}
+
+        {loadingDoctors ? (
+          <div className="py-8 text-center text-sm text-text-hint">
+            Loading doctors...
+          </div>
+        ) : doctors.length === 0 ? (
+          <div className="py-8 text-center text-sm text-text-hint">
+            No doctors added yet. Add one below.
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-border-primary">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border-primary bg-surface-secondary">
+                  <th className="px-4 py-2.5 text-left font-medium text-text-secondary">
+                    Name
+                  </th>
+                  <th className="px-4 py-2.5 text-left font-medium text-text-secondary">
+                    Qualifications
+                  </th>
+                  <th className="hidden px-4 py-2.5 text-left font-medium text-text-secondary sm:table-cell">
+                    Reg. Number
+                  </th>
+                  <th className="px-4 py-2.5 text-right font-medium text-text-secondary">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {doctors.map((doctor) => (
+                  <tr
+                    key={doctor.id}
+                    className={`border-b border-border-primary last:border-0 ${
+                      !doctor.isActive ? "opacity-50" : ""
+                    }`}
+                  >
+                    <td className="px-4 py-2.5 text-text-primary">
+                      {doctor.name}
+                      {!doctor.isActive && (
+                        <span className="ml-2 rounded bg-surface-error/10 px-1.5 py-0 text-[10px] font-medium text-text-error">
+                          Inactive
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-text-secondary">
+                      {doctor.qualifications || "-"}
+                    </td>
+                    <td className="hidden px-4 py-2.5 text-text-hint sm:table-cell">
+                      {doctor.registrationNumber || "-"}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => setEditingDoctor(doctor)}
+                          className="rounded px-2 py-1 text-xs font-medium text-text-secondary hover:bg-surface-secondary hover:text-text-primary"
+                        >
+                          Edit
+                        </button>
+                        {doctor.isActive && (
+                          <button
+                            onClick={() => handleDeleteDoctor(doctor.id)}
+                            disabled={deletingDoctorId === doctor.id}
+                            className="rounded px-2 py-1 text-xs font-medium text-text-error hover:bg-surface-error/10 disabled:opacity-50"
+                          >
+                            {deletingDoctorId === doctor.id
+                              ? "Removing..."
+                              : "Remove"}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ====== Section: Add Doctor ====== */}
+      <div className="max-w-md">
+        <h2 className="mb-3 text-lg font-semibold text-text-primary">
+          Add Doctor
+        </h2>
+
+        <form
+          onSubmit={handleCreateDoctor}
+          className="space-y-4 rounded-lg border border-border-primary bg-surface-primary p-6 shadow-sm"
+        >
+          {createDoctorState.status === "error" && (
+            <Alert variant="error">{createDoctorState.message}</Alert>
+          )}
+
+          {createDoctorState.status === "success" && (
+            <Alert variant="success">
+              Doctor <strong>{createDoctorState.name}</strong> added
+              successfully.
+            </Alert>
+          )}
+
+          <FormField label="Name" htmlFor="new-doctor-name">
+            <Input
+              id="new-doctor-name"
+              type="text"
+              value={doctorName}
+              onChange={(e) => setDoctorName(e.target.value)}
+              required
+              maxLength={200}
+              placeholder="Dr. Full Name"
+              disabled={isCreatingDoctor}
+            />
+          </FormField>
+
+          <FormField label="Qualifications" htmlFor="new-doctor-qualifications" hint="Optional">
+            <Input
+              id="new-doctor-qualifications"
+              type="text"
+              value={doctorQualifications}
+              onChange={(e) => setDoctorQualifications(e.target.value)}
+              maxLength={500}
+              placeholder="BDS, MDS (Prosthodontics)"
+              disabled={isCreatingDoctor}
+            />
+          </FormField>
+
+          <FormField
+            label="Registration Number"
+            htmlFor="new-doctor-reg"
+            hint="Optional"
+          >
+            <Input
+              id="new-doctor-reg"
+              type="text"
+              value={doctorRegNumber}
+              onChange={(e) => setDoctorRegNumber(e.target.value)}
+              maxLength={100}
+              placeholder="DL-12345"
+              disabled={isCreatingDoctor}
+            />
+          </FormField>
+
+          <Button
+            type="submit"
+            disabled={isCreatingDoctor}
+            fullWidth
+            loading={isCreatingDoctor}
+            loadingText="Adding..."
+          >
+            Add Doctor
+          </Button>
+        </form>
+      </div>
+
+      {/* ====== Section: Admin Users List ====== */}
       <div>
         <h2 className="mb-3 text-lg font-semibold text-text-primary">
           Admin Users
@@ -336,7 +726,7 @@ export default function SettingsView() {
                           </button>
                           {!isSelf && (
                             <button
-                              onClick={() => handleDelete(admin.id)}
+                              onClick={() => handleDeleteAdmin(admin.id)}
                               disabled={deletingId === admin.id}
                               className="rounded px-2 py-1 text-xs font-medium text-text-error hover:bg-surface-error/10 disabled:opacity-50"
                             >
@@ -362,7 +752,7 @@ export default function SettingsView() {
         )}
       </div>
 
-      {/* Section 2: Add Admin */}
+      {/* ====== Section: Add Admin ====== */}
       <div className="max-w-md">
         <h2 className="mb-3 text-lg font-semibold text-text-primary">
           Add Admin User
@@ -391,7 +781,7 @@ export default function SettingsView() {
               required
               maxLength={100}
               placeholder="Admin name"
-              disabled={isCreating}
+              disabled={isCreatingAdmin}
             />
           </FormField>
 
@@ -403,7 +793,7 @@ export default function SettingsView() {
               onChange={(e) => setAdminEmail(e.target.value)}
               required
               placeholder="admin@example.com"
-              disabled={isCreating}
+              disabled={isCreatingAdmin}
             />
           </FormField>
 
@@ -416,15 +806,15 @@ export default function SettingsView() {
               required
               minLength={6}
               placeholder="Min. 6 characters"
-              disabled={isCreating}
+              disabled={isCreatingAdmin}
             />
           </FormField>
 
           <Button
             type="submit"
-            disabled={isCreating}
+            disabled={isCreatingAdmin}
             fullWidth
-            loading={isCreating}
+            loading={isCreatingAdmin}
             loadingText="Creating..."
           >
             Create Admin
@@ -432,12 +822,19 @@ export default function SettingsView() {
         </form>
       </div>
 
-      {/* Edit modal */}
+      {/* ====== Modals ====== */}
       {editingAdmin && (
         <EditAdminModal
           admin={editingAdmin}
           onClose={() => setEditingAdmin(null)}
           onSaved={fetchAdmins}
+        />
+      )}
+      {editingDoctor && (
+        <EditDoctorModal
+          doctor={editingDoctor}
+          onClose={() => setEditingDoctor(null)}
+          onSaved={fetchDoctors}
         />
       )}
     </div>

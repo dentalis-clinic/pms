@@ -95,12 +95,14 @@ model Appointment {
   reasonForVisit    String?           @db.Text
   submittedBy       SubmissionSource
   adminUserId       String?
+  doctorId          String?
   notes             String?           @db.Text
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
   patient      Patient       @relation(fields: [patientId], references: [id])
   admin        Admin?        @relation("appointmentAdmin", fields: [adminUserId], references: [id])
+  doctor       Doctor?       @relation("appointmentDoctor", fields: [doctorId], references: [id])
   prescription Prescription?
 
   @@index([patientId])
@@ -110,6 +112,7 @@ model Appointment {
   @@index([createdAt])
   @@index([bookingChannel])
   @@index([visitType])
+  @@index([doctorId])
   @@map("appointments")
 }
 
@@ -132,6 +135,21 @@ model Prescription {
 
   @@index([prescriptionId])
   @@map("prescriptions")
+}
+
+/// Doctor profile. Separate from Admin — doctors don't need login credentials.
+model Doctor {
+  id                 String   @id @default(uuid())
+  name               String
+  qualifications     String?
+  registrationNumber String?
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  appointments Appointment[] @relation("appointmentDoctor")
+
+  @@map("doctors")
 }
 
 /// Admin/Doctor user. ID matches Supabase auth.users.id.

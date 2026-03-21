@@ -101,15 +101,6 @@ export default function PrescriptionView({ prescription }: PrescriptionViewProps
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm font-semibold text-gray-900">
-                {CLINIC_CONFIG.doctorName}
-              </p>
-              <p className="text-xs text-gray-600">
-                {CLINIC_CONFIG.doctorQualifications}
-              </p>
-              <p className="text-xs text-gray-600">
-                Reg. No: {CLINIC_CONFIG.registrationNumber}
-              </p>
               <p className="mt-1 text-xs text-gray-600">
                 {CLINIC_CONFIG.phones.join(" | ")}
               </p>
@@ -233,9 +224,6 @@ export default function PrescriptionView({ prescription }: PrescriptionViewProps
             <div className="w-48 border-b border-gray-400 mb-2" />
             <p className="text-sm font-semibold text-gray-900">
               {prescription.prescribedBy.name}
-            </p>
-            <p className="text-xs text-gray-600">
-              {CLINIC_CONFIG.doctorQualifications}
             </p>
           </div>
         </div>

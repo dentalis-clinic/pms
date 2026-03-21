@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { DateSlotPicker } from "@/components/ui/DateSlotPicker";
 import type { TimeSlot } from "@/components/ui/DateSlotPicker/types";
-import type { PatientMatch } from "@/types/patient";
+import type { PatientMatch, DoctorRow } from "@/types/patient";
 
 export default function AppointmentSlideOver() {
   const {
@@ -47,12 +47,36 @@ export default function AppointmentSlideOver() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  // Doctor selection
+  const [doctors, setDoctors] = useState<DoctorRow[]>([]);
+  const [selectedDoctorId, setSelectedDoctorId] = useState("");
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
+
   // Slot override state (admin only)
   const [overrideSlot, setOverrideSlot] = useState<TimeSlot | null>(null);
   const [allowOverride, setAllowOverride] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const isConfirmMode = !!appointment;
+
+  // Fetch doctors when slide-over opens
+  useEffect(() => {
+    if (!open) return;
+    setLoadingDoctors(true);
+    fetch("/api/doctors")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          setDoctors(data.doctors);
+          // Auto-select if only one doctor and no pre-selection
+          if (data.doctors.length === 1) {
+            setSelectedDoctorId(data.doctors[0].id);
+          }
+        }
+      })
+      .catch((err) => console.error("Failed to fetch doctors:", err))
+      .finally(() => setLoadingDoctors(false));
+  }, [open]);
 
   // Reset form when slide-over opens/closes or appointment changes
   useEffect(() => {
@@ -88,6 +112,7 @@ export default function AppointmentSlideOver() {
           .toFormat("yyyy-MM-dd'T'HH:mm")
       );
       setReasonForVisit(appointment.reasonForVisit ?? "");
+      setSelectedDoctorId(appointment.doctorId ?? "");
     } else {
       // New appointment mode — blank with current datetime
       setPhone("");
@@ -100,6 +125,7 @@ export default function AppointmentSlideOver() {
         DateTime.now().setZone("Asia/Kolkata").toFormat("yyyy-MM-dd'T'HH:mm")
       );
       setReasonForVisit("");
+      setSelectedDoctorId("");
     }
   }, [open, appointment]);
 
@@ -239,6 +265,9 @@ export default function AppointmentSlideOver() {
       }
       if (showPriority && priority !== "ROUTINE") {
         payload.priority = priority;
+      }
+      if (selectedDoctorId) {
+        payload.doctorId = selectedDoctorId;
       }
 
       const res = await fetch("/api/appointments/confirm", {
@@ -539,6 +568,33 @@ export default function AppointmentSlideOver() {
                 </div>
               </FormField>
             )}
+
+            {/* Treating Doctor (required) */}
+            <FormField label="Treating Doctor" htmlFor="doctorId">
+              {loadingDoctors ? (
+                <p className="text-sm text-text-hint">Loading doctors...</p>
+              ) : doctors.length === 0 ? (
+                <Alert variant="warning">
+                  No doctors found. Add a doctor in Settings first.
+                </Alert>
+              ) : (
+                <select
+                  id="doctorId"
+                  value={selectedDoctorId}
+                  onChange={(e) => setSelectedDoctorId(e.target.value)}
+                  disabled={submitting}
+                  required
+                  className="block w-full rounded-md border border-border-secondary bg-surface-primary px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:ring-1 focus:ring-focus-ring focus:outline-none"
+                >
+                  <option value="">Select a doctor...</option>
+                  {doctors.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}{d.qualifications ? ` (${d.qualifications})` : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </FormField>
 
             {/* Preferred Date/Time */}
             <div>

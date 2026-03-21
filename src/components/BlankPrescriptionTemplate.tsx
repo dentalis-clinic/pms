@@ -21,6 +21,11 @@ interface BlankPrescriptionTemplateProps {
       sex: string | null;
       address: string | null;
     };
+    doctor: {
+      name: string;
+      qualifications: string | null;
+      registrationNumber: string | null;
+    } | null;
   };
 }
 
@@ -185,19 +190,12 @@ export default function BlankPrescriptionTemplate({
               <span className="font-medium text-gray-700">Patient: </span>
               <span className="text-gray-900">{patient.name}</span>
             </p>
-            {patient.dateOfBirth && (
+            {(patient.dateOfBirth || patient.sex) && (
               <p>
-                <span className="font-medium text-gray-700">Age: </span>
+                <span className="font-medium text-gray-700">Age/Sex: </span>
                 <span className="text-gray-900">
-                  {calculateAge(patient.dateOfBirth)}
-                </span>
-              </p>
-            )}
-            {patient.sex && (
-              <p>
-                <span className="font-medium text-gray-700">Sex: </span>
-                <span className="text-gray-900">
-                  {patient.sex.charAt(0) + patient.sex.slice(1).toLowerCase()}
+                  {patient.dateOfBirth ? calculateAge(patient.dateOfBirth).replace(" yrs", "") : "-"}
+                  /{patient.sex ? patient.sex.charAt(0) : "-"}
                 </span>
               </p>
             )}
@@ -209,12 +207,6 @@ export default function BlankPrescriptionTemplate({
               <p>
                 <span className="font-medium text-gray-700">Address: </span>
                 <span className="text-gray-900">{patient.address}</span>
-              </p>
-            )}
-            {patient.email && (
-              <p>
-                <span className="font-medium text-gray-700">Email: </span>
-                <span className="text-gray-900">{patient.email}</span>
               </p>
             )}
           </div>
@@ -286,12 +278,18 @@ export default function BlankPrescriptionTemplate({
           {/* Signature - Right side */}
           <div className="text-center">
             <div className="w-48 border-b border-gray-400 mb-2" />
-            <p className="text-sm font-semibold text-gray-900">
-              {CLINIC_CONFIG.doctorName}
-            </p>
-            <p className="text-xs text-gray-600">
-              {CLINIC_CONFIG.doctorQualifications}
-            </p>
+            {appointment.doctor && (
+              <>
+                <p className="text-sm font-semibold text-gray-900">
+                  {appointment.doctor.name}
+                </p>
+                {appointment.doctor.qualifications && (
+                  <p className="text-xs text-gray-600">
+                    {appointment.doctor.qualifications}
+                  </p>
+                )}
+              </>
+            )}
           </div>
         </div>
 

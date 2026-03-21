@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
         patient: true,
         // Only fetch prescription ID — the list view just needs to know if one exists
         prescription: { select: { id: true, prescriptionId: true } },
+        doctor: { select: { id: true, name: true, qualifications: true } },
       },
       orderBy,
     });
@@ -89,6 +90,7 @@ export async function GET(request: NextRequest) {
       },
       // Only id + prescriptionId are selected — no date serialization needed
       prescription: a.prescription ?? null,
+      doctor: a.doctor ?? null,
     }));
 
     return NextResponse.json({ success: true, appointments: serialized });
