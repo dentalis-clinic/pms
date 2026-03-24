@@ -238,24 +238,12 @@ export const confirmAppointmentSchema = z.object({
     .max(500, "Address must be 500 characters or less")
     .optional()
     .or(z.literal("")),
-  // Appointment fields (no 72-hour limit for admin)
+  // Appointment fields — admin is unrestricted (no business-hours or slot-alignment checks)
   preferredDateTime: z
     .string()
     .min(1, "Preferred date and time is required")
     .transform((val) => new Date(val))
-    .refine((date) => !isNaN(date.getTime()), "Invalid date format")
-    .refine((date) => {
-      const datetime = DateTime.fromJSDate(date, {
-        zone: BUSINESS_HOURS_CONFIG.timezone,
-      });
-      return isSlotWithinBusinessHours(datetime);
-    }, "Selected time is outside clinic hours (10:00 AM - 2:00 PM, 4:00 PM - 10:00 PM)")
-    .refine((date) => {
-      const datetime = DateTime.fromJSDate(date, {
-        zone: BUSINESS_HOURS_CONFIG.timezone,
-      });
-      return isSlotAligned(datetime);
-    }, "Please select a valid time slot"),
+    .refine((date) => !isNaN(date.getTime()), "Invalid date format"),
   reasonForVisit: z
     .string()
     .trim()
@@ -311,6 +299,22 @@ export const patchPatientSchema = z.object({
   sex: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
 });
 
+// --- Bulk action schemas ---
+
+export const bulkCancelSchema = z.object({
+  ids: z
+    .array(z.string().uuid("Invalid appointment ID"))
+    .min(1, "Select at least one appointment")
+    .max(50, "Maximum 50 appointments at a time"),
+});
+
+export const bulkDeleteSchema = z.object({
+  ids: z
+    .array(z.string().uuid("Invalid appointment ID"))
+    .min(1, "Select at least one appointment")
+    .max(50, "Maximum 50 appointments at a time"),
+});
+
 // --- Inferred types ---
 
 export type PublicBookingInput = z.input<typeof publicBookingSchema>;
@@ -318,3 +322,5 @@ export type WalkInInput = z.input<typeof walkInSchema>;
 export type FollowUpInput = z.input<typeof followUpSchema>;
 export type PatchAppointmentInput = z.input<typeof patchAppointmentSchema>;
 export type PatchPatientInput = z.input<typeof patchPatientSchema>;
+export type BulkCancelInput = z.input<typeof bulkCancelSchema>;
+export type BulkDeleteInput = z.input<typeof bulkDeleteSchema>;

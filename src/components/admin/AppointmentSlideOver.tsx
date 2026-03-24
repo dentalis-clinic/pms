@@ -8,9 +8,8 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
-import { DateSlotPicker } from "@/components/ui/DateSlotPicker";
-import type { TimeSlot } from "@/components/ui/DateSlotPicker/types";
 import type { PatientMatch, DoctorRow } from "@/types/patient";
+import { ConfirmationModal } from "./ConfirmationModal";
 
 export default function AppointmentSlideOver() {
   const {
@@ -47,14 +46,15 @@ export default function AppointmentSlideOver() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  // Confirmation modal state
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [formPayload, setFormPayload] = useState<Record<string, unknown> | null>(null);
+
   // Doctor selection
   const [doctors, setDoctors] = useState<DoctorRow[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
   const [loadingDoctors, setLoadingDoctors] = useState(false);
 
-  // Slot override state (admin only)
-  const [overrideSlot, setOverrideSlot] = useState<TimeSlot | null>(null);
-  const [allowOverride, setAllowOverride] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const isConfirmMode = !!appointment;
@@ -83,6 +83,8 @@ export default function AppointmentSlideOver() {
     if (!open) return;
     setError("");
     setSubmitting(false);
+    setShowConfirmModal(false);
+    setFormPayload(null);
     setMatchedPatients([]);
     setSelectedPatientId(null);
     setIsNewPatient(false);
@@ -91,8 +93,6 @@ export default function AppointmentSlideOver() {
     setIsPhoneBooking(false);
     setShowPriority(false);
     setPriority("ROUTINE");
-    setOverrideSlot(null);
-    setAllowOverride(false);
 
     if (appointment) {
       // Confirm mode — pre-fill from appointment
@@ -234,46 +234,53 @@ export default function AppointmentSlideOver() {
   const showVisitType =
     !isConfirmMode && (selectedPatientId !== null || (matchedPatients.length > 1 && !isNewPatient));
 
-  async function handleSubmit(e: FormEvent) {
+  function handleFormSubmit(e: FormEvent) {
     e.preventDefault();
+    setError("");
+
+    const payload: Record<string, unknown> = {
+      phone,
+      name,
+      sex: sex || undefined,
+      dateOfBirth: dateOfBirth || undefined,
+      email: email || undefined,
+      address: address || undefined,
+      preferredDateTime: new Date(preferredDateTime).toISOString(),
+      reasonForVisit: reasonForVisit || undefined,
+      allowOverride: true,
+    };
+
+    if (isConfirmMode) {
+      payload.existingAppointmentId = appointment.id;
+    } else if (selectedPatientId && !isNewPatient) {
+      payload.existingPatientId = selectedPatientId;
+      payload.visitType = visitType;
+    }
+
+    if (isPhoneBooking) {
+      payload.isPhoneBooking = true;
+    }
+    if (showPriority && priority !== "ROUTINE") {
+      payload.priority = priority;
+    }
+    if (selectedDoctorId) {
+      payload.doctorId = selectedDoctorId;
+    }
+
+    setFormPayload(payload);
+    setShowConfirmModal(true);
+  }
+
+  async function handleConfirm(openPrescription: boolean) {
+    if (!formPayload) return;
     setError("");
     setSubmitting(true);
 
     try {
-      const payload: Record<string, unknown> = {
-        phone,
-        name,
-        sex: sex || undefined,
-        dateOfBirth: dateOfBirth || undefined,
-        email: email || undefined,
-        address: address || undefined,
-        preferredDateTime: new Date(preferredDateTime).toISOString(),
-        reasonForVisit: reasonForVisit || undefined,
-        allowOverride, // Include override flag for admin double-booking
-      };
-
-      if (isConfirmMode) {
-        payload.existingAppointmentId = appointment.id;
-      } else if (selectedPatientId && !isNewPatient) {
-        payload.existingPatientId = selectedPatientId;
-        payload.visitType = visitType;
-      }
-
-      // Add booking method and priority
-      if (isPhoneBooking) {
-        payload.isPhoneBooking = true;
-      }
-      if (showPriority && priority !== "ROUTINE") {
-        payload.priority = priority;
-      }
-      if (selectedDoctorId) {
-        payload.doctorId = selectedDoctorId;
-      }
-
       const res = await fetch("/api/appointments/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(formPayload),
       });
 
       const data = await res.json();
@@ -283,13 +290,14 @@ export default function AppointmentSlideOver() {
         return;
       }
 
-      // Open blank prescription template in new tab
-      const appointmentId = data.appointmentId;
-      window.open(
-        `/admin/dashboard/prescription/blank/${appointmentId}`,
-        "_blank"
-      );
+      if (openPrescription) {
+        window.open(
+          `/admin/dashboard/prescription/blank/${data.appointmentId}`,
+          "_blank"
+        );
+      }
 
+      setShowConfirmModal(false);
       closeAppointmentSlideOver();
       triggerRefresh();
     } catch {
@@ -337,7 +345,7 @@ export default function AppointmentSlideOver() {
           </button>
         </div>
 
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-6 p-6">
+        <form ref={formRef} onSubmit={handleFormSubmit} className="space-y-6 p-6">
           {error && <Alert variant="error">{error}</Alert>}
 
           {/* --- Patient Section --- */}
@@ -597,19 +605,27 @@ export default function AppointmentSlideOver() {
             </FormField>
 
             {/* Preferred Date/Time */}
-            <div>
-              <DateSlotPicker
-                value={preferredDateTime}
-                onChange={setPreferredDateTime}
-                disabled={submitting}
-                allowOverride={true}
-                onConflict={(slot) => {
-                  setOverrideSlot(slot);
-                  setAllowOverride(false);
-                }}
-                excludeAppointmentId={isConfirmMode ? appointment.id : undefined}
-              />
-            </div>
+            {isConfirmMode ? (
+              <FormField label="Appointment Date & Time" htmlFor="preferredDateTime">
+                <p className="rounded-md border border-border-secondary bg-surface-secondary px-3 py-2 text-sm text-text-primary">
+                  {DateTime.fromISO(appointment.preferredDateTime)
+                    .setZone("Asia/Kolkata")
+                    .toFormat("dd MMM yyyy, hh:mm a")}
+                </p>
+              </FormField>
+            ) : (
+              <FormField label="Date & Time" htmlFor="preferredDateTime">
+                <Input
+                  id="preferredDateTime"
+                  type="datetime-local"
+                  value={preferredDateTime}
+                  onChange={(e) => setPreferredDateTime(e.target.value)}
+                  disabled={submitting}
+                  min={DateTime.now().setZone("Asia/Kolkata").toFormat("yyyy-MM-dd'T'HH:mm")}
+                  required
+                />
+              </FormField>
+            )}
 
             {/* Chief Complaint */}
             <FormField label="Chief Complaint" htmlFor="reasonForVisit" hint="Optional">
@@ -625,59 +641,39 @@ export default function AppointmentSlideOver() {
             </FormField>
           </fieldset>
 
-          {/* --- Slot Conflict Dialog --- */}
-          {overrideSlot && (
-            <Alert variant="warning">
-              <div className="space-y-3">
-                <p className="text-sm font-medium">
-                  This time slot ({overrideSlot.time}) already has{" "}
-                  {overrideSlot.count} appointment{overrideSlot.count > 1 ? "s" : ""}.
-                </p>
-                <p className="text-sm">
-                  Do you want to double-book this slot?
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      setOverrideSlot(null);
-                      setAllowOverride(false);
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    onClick={() => {
-                      setAllowOverride(true);
-                      setOverrideSlot(null);
-                      // Auto-submit after override is confirmed
-                      formRef.current?.requestSubmit();
-                    }}
-                  >
-                    Yes, Double-book
-                  </Button>
-                </div>
-              </div>
-            </Alert>
-          )}
-
           {/* --- Submit --- */}
           <div className="border-t border-border-primary pt-4">
             <Button
               type="submit"
               fullWidth
-              loading={submitting}
-              loadingText="Generating..."
+              disabled={submitting}
             >
-              Generate Prescription
+              Confirm Appointment
             </Button>
           </div>
         </form>
+
+        {/* Confirmation Modal */}
+        {showConfirmModal && formPayload && (
+          <ConfirmationModal
+            patientName={name}
+            patientPhone={phone}
+            sex={sex}
+            dateOfBirth={dateOfBirth}
+            preferredDateTime={preferredDateTime}
+            reasonForVisit={reasonForVisit}
+            doctorName={doctors.find((d) => d.id === selectedDoctorId)?.name ?? ""}
+            isConfirmMode={isConfirmMode}
+            loading={submitting}
+            error={error}
+            onConfirmAndPrint={() => handleConfirm(true)}
+            onConfirmOnly={() => handleConfirm(false)}
+            onCancel={() => {
+              setShowConfirmModal(false);
+              setError("");
+            }}
+          />
+        )}
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { formatISTDateTime } from "@/lib/utils/date";
 import type { AppointmentRow } from "@/types/patient";
 import type { AppointmentStatus } from "@/generated/prisma/client";
 import { Input, Badge } from "@/components/ui";
+import { Button } from "@/components/ui/Button";
 import { STATUS_BADGE, CHANNEL_LABEL, VISIT_TYPE_LABEL } from "@/lib/constants/appointment";
 
 interface PatientTableProps {
@@ -166,6 +167,37 @@ export default function PatientTable({
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortAsc, setSortAsc] = useState(false);
 
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkCancelling, setBulkCancelling] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [confirmingAction, setConfirmingAction] = useState<"cancel" | "delete" | null>(null);
+
+  // Mark Complete state
+  const [completingId, setCompletingId] = useState<string | null>(null);
+
+  const handleMarkComplete = useCallback(async (appointmentId: string) => {
+    setCompletingId(appointmentId);
+    try {
+      const res = await fetch(`/api/appointments/${appointmentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "COMPLETED" }),
+      });
+      if (res.ok) onRefresh();
+    } catch {
+      // silently fail, user can retry
+    } finally {
+      setCompletingId(null);
+    }
+  }, [onRefresh]);
+
+  // Clear selection when appointments change (filter/refresh/tab switch)
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setConfirmingAction(null);
+  }, [appointments]);
+
   const filtered = useMemo(() => {
     if (!search.trim()) return appointments;
     const q = search.toLowerCase();
@@ -202,6 +234,82 @@ export default function PatientTable({
     });
     return arr;
   }, [filtered, sortKey, sortAsc]);
+
+  // Selection computations
+  const someSelected = selectedIds.size > 0;
+  const allSelected = sorted.length > 0 && sorted.every((a) => selectedIds.has(a.id));
+
+  const selectedAppointments = useMemo(
+    () => sorted.filter((a) => selectedIds.has(a.id)),
+    [sorted, selectedIds]
+  );
+
+  const cancellableSelected = useMemo(
+    () => selectedAppointments.filter((a) => a.status === "PENDING" || a.status === "OVERDUE"),
+    [selectedAppointments]
+  );
+
+  // Toggle helpers
+  function toggleSelectAll() {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(sorted.map((a) => a.id)));
+    }
+    setConfirmingAction(null);
+  }
+
+  function toggleSelect(id: string) {
+    const next = new Set(selectedIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSelectedIds(next);
+    setConfirmingAction(null);
+  }
+
+  // Bulk action handlers
+  async function executeBulkCancel() {
+    setBulkCancelling(true);
+    try {
+      const res = await fetch("/api/appointments/bulk-cancel", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: cancellableSelected.map((a) => a.id) }),
+      });
+      if (res.ok) {
+        setSelectedIds(new Set());
+        onRefresh();
+      }
+    } catch {
+      // silently fail, user can retry
+    } finally {
+      setBulkCancelling(false);
+      setConfirmingAction(null);
+    }
+  }
+
+  async function executeBulkDelete() {
+    setBulkDeleting(true);
+    try {
+      const res = await fetch("/api/appointments/bulk-delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedAppointments.map((a) => a.id) }),
+      });
+      if (res.ok) {
+        setSelectedIds(new Set());
+        onRefresh();
+      }
+    } catch {
+      // silently fail, user can retry
+    } finally {
+      setBulkDeleting(false);
+      setConfirmingAction(null);
+    }
+  }
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -240,10 +348,115 @@ export default function PatientTable({
         />
       )}
 
+      {/* Bulk Action Bar */}
+      {someSelected && (
+        <div className="flex items-center justify-between rounded-lg border border-border-primary bg-surface-secondary px-4 py-2.5">
+          {confirmingAction === null ? (
+            <>
+              <span className="text-sm font-medium text-text-primary">
+                {selectedIds.size} selected
+              </span>
+              <div className="flex items-center gap-2">
+                {cancellableSelected.length > 0 && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setConfirmingAction("cancel")}
+                    disabled={bulkCancelling || bulkDeleting}
+                  >
+                    Cancel ({cancellableSelected.length})
+                  </Button>
+                )}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setConfirmingAction("delete")}
+                  disabled={bulkCancelling || bulkDeleting}
+                  className="text-text-error border-border-error hover:bg-surface-error/50"
+                >
+                  Delete ({selectedIds.size})
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedIds(new Set());
+                    setConfirmingAction(null);
+                  }}
+                  className="text-sm text-text-hint hover:text-text-secondary"
+                >
+                  Clear
+                </button>
+              </div>
+            </>
+          ) : confirmingAction === "cancel" ? (
+            <>
+              <span className="text-sm text-text-primary">
+                Cancel {cancellableSelected.length} appointment{cancellableSelected.length !== 1 ? "s" : ""}? This cannot be undone.
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={executeBulkCancel}
+                  loading={bulkCancelling}
+                  loadingText="Cancelling..."
+                  className="bg-interactive-error hover:bg-interactive-error-hover"
+                >
+                  Yes, Cancel
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setConfirmingAction(null)}
+                  disabled={bulkCancelling}
+                >
+                  No
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="text-sm text-text-primary">
+                Permanently delete {selectedIds.size} appointment{selectedIds.size !== 1 ? "s" : ""}? This cannot be undone.
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={executeBulkDelete}
+                  loading={bulkDeleting}
+                  loadingText="Deleting..."
+                  className="bg-interactive-error hover:bg-interactive-error-hover"
+                >
+                  Yes, Delete
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setConfirmingAction(null)}
+                  disabled={bulkDeleting}
+                >
+                  No
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       <div className="overflow-x-auto rounded-lg border border-border-primary">
         <table className="min-w-full divide-y divide-border-primary">
           <thead className="bg-surface-secondary">
             <tr>
+              <th className="w-8 px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleSelectAll}
+                  className="accent-interactive-primary h-4 w-4 rounded"
+                  aria-label="Select all"
+                />
+              </th>
               <th className={thClass} onClick={() => handleSort("patientId")}>
                 Patient ID{sortIndicator("patientId")}
               </th>
@@ -274,18 +487,27 @@ export default function PatientTable({
 
               // Channel icon mapping
               const channelIcon = {
-                ONLINE: "🌐",
-                PHONE: "📱",
-                WALK_IN: "👤",
-                SMS: "💬",
-                WHATSAPP: "💬",
+                ONLINE: "\u{1F310}",
+                PHONE: "\u{1F4F1}",
+                WALK_IN: "\u{1F464}",
+                SMS: "\u{1F4AC}",
+                WHATSAPP: "\u{1F4AC}",
               }[a.bookingChannel];
 
               return (
                 <tr
                   key={a.id}
-                  className={`text-sm ${isHighlighted ? "animate-pulse bg-surface-warning" : ""}`}
+                  className={`text-sm ${isHighlighted ? "animate-pulse bg-surface-warning" : ""} ${selectedIds.has(a.id) ? "bg-surface-brand/5" : ""}`}
                 >
+                  <td className="whitespace-nowrap px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(a.id)}
+                      onChange={() => toggleSelect(a.id)}
+                      className="accent-interactive-primary h-4 w-4 rounded"
+                      aria-label={`Select appointment for ${a.patient.name}`}
+                    />
+                  </td>
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-text-brand">
                     {a.patient.patientId}
                   </td>
@@ -302,7 +524,7 @@ export default function PatientTable({
                       </span>
                       {a.visitType === "FOLLOW_UP" && (
                         <Badge variant="neutral" className="text-xs">
-                          ↩️ {VISIT_TYPE_LABEL.FOLLOW_UP}
+                          {"\u21A9\uFE0F"} {VISIT_TYPE_LABEL.FOLLOW_UP}
                         </Badge>
                       )}
                     </div>
@@ -312,7 +534,7 @@ export default function PatientTable({
                       variant={statusBadge.variant}
                       className={a.priority === "EMERGENCY" ? "border-2 border-red-500" : ""}
                     >
-                      {a.priority === "EMERGENCY" && "🚨 "}
+                      {a.priority === "EMERGENCY" && "\u{1F6A8} "}
                       {statusBadge.label}
                     </Badge>
                   </td>
@@ -335,6 +557,18 @@ export default function PatientTable({
                           className="rounded bg-interactive-primary px-2.5 py-1 text-xs font-medium text-text-inverse hover:bg-interactive-primary-hover"
                         >
                           Confirm
+                        </button>
+                      )}
+
+                      {/* CONFIRMED → Mark Complete + Print Prescription */}
+                      {a.status === "CONFIRMED" && (
+                        <button
+                          type="button"
+                          onClick={() => handleMarkComplete(a.id)}
+                          disabled={completingId === a.id}
+                          className="rounded bg-interactive-success px-2.5 py-1 text-xs font-medium text-text-inverse hover:bg-interactive-success-hover disabled:opacity-50"
+                        >
+                          {completingId === a.id ? "..." : "Mark Complete"}
                         </button>
                       )}
 

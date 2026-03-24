@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { DateTime } from "luxon";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { resolveAppointmentStatuses } from "@/lib/utils/resolve-appointment-status";
 import type {
   AppointmentStatus,
   AppointmentType,
@@ -11,6 +12,9 @@ export async function GET(request: NextRequest) {
   try {
     const auth = await requireAdmin();
     if (auth.error) return auth.error;
+
+    // Resolve time-based statuses before querying
+    await resolveAppointmentStatuses();
 
     // Query params
     const { searchParams } = request.nextUrl;

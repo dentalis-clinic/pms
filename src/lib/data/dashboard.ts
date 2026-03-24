@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import { prisma } from "@/lib/prisma";
+import { resolveAppointmentStatuses } from "@/lib/utils/resolve-appointment-status";
 import type { AppointmentStatus } from "@/generated/prisma/client";
 
 /**
@@ -30,6 +31,7 @@ function getTodayBounds() {
 }
 
 export async function fetchDashboardStats(): Promise<DashboardStatsData> {
+  await resolveAppointmentStatuses();
   const { todayStart, tomorrowStart } = getTodayBounds();
 
   const [stats] = await prisma.$queryRaw<StatsRow[]>`
@@ -61,6 +63,7 @@ export async function fetchDashboardStats(): Promise<DashboardStatsData> {
 type DateFilter = "today" | "upcoming" | "all";
 
 export async function fetchAppointments(dateFilter: DateFilter = "today") {
+  await resolveAppointmentStatuses();
   const where: Record<string, unknown> = {};
 
   if (dateFilter === "today" || dateFilter === "upcoming") {

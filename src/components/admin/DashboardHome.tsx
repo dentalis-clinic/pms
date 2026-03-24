@@ -12,7 +12,7 @@ import type { AppointmentRow } from "@/types/patient";
 const KPI_LABELS: { key: keyof DashboardStats; label: string; href: string }[] = [
   { key: "todayAppointments", label: "Today's Appointments", href: "/admin/dashboard/appointments?tab=today" },
   { key: "pendingConfirmations", label: "Pending Confirmations", href: "/admin/dashboard/appointments?status=PENDING" },
-  { key: "patientsSeenToday", label: "Patients Seen Today", href: "/admin/dashboard/appointments?tab=today&status=CONFIRMED" },
+  { key: "patientsSeenToday", label: "Patients Seen Today", href: "/admin/dashboard/appointments?tab=today&status=COMPLETED" },
   { key: "totalPatients", label: "Total Patients", href: "/admin/dashboard/appointments?tab=all" },
 ];
 
@@ -25,11 +25,28 @@ export default function DashboardHome({
   initialStats,
   initialAppointments,
 }: DashboardHomeProps) {
-  const { refreshKey, openConfirmAppointment } = useDashboard();
+  const { refreshKey, openConfirmAppointment, triggerRefresh } = useDashboard();
   const [stats, setStats] = useState<DashboardStats>(initialStats);
   const [appointments, setAppointments] =
     useState<AppointmentRow[]>(initialAppointments);
   const isFirstRender = useRef(true);
+  const [completingId, setCompletingId] = useState<string | null>(null);
+
+  const handleMarkComplete = useCallback(async (appointmentId: string) => {
+    setCompletingId(appointmentId);
+    try {
+      const res = await fetch(`/api/appointments/${appointmentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "COMPLETED" }),
+      });
+      if (res.ok) triggerRefresh();
+    } catch {
+      // silently fail, user can retry
+    } finally {
+      setCompletingId(null);
+    }
+  }, [triggerRefresh]);
 
   // Only refetch client-side when refreshKey changes (after mutations)
   const fetchData = useCallback(async () => {
@@ -138,6 +155,16 @@ export default function DashboardHome({
                         onClick={() => openConfirmAppointment(a)}
                       >
                         Confirm
+                      </Button>
+                    )}
+                    {a.status === "CONFIRMED" && (
+                      <Button
+                        size="sm"
+                        variant="success"
+                        onClick={() => handleMarkComplete(a.id)}
+                        disabled={completingId === a.id}
+                      >
+                        {completingId === a.id ? "..." : "Mark Complete"}
                       </Button>
                     )}
                     {(a.status === "CONFIRMED" ||
