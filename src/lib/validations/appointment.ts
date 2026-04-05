@@ -98,19 +98,12 @@ export const walkInSchema = publicBookingBaseSchema.extend({
     .email("Invalid email address")
     .optional()
     .or(z.literal("")),
-  dateOfBirth: z
-    .string()
-    .optional()
-    .or(z.literal(""))
-    .transform((val) => (val ? new Date(val) : undefined))
-    .refine(
-      (date) => !date || !isNaN(date.getTime()),
-      "Invalid date of birth"
-    )
-    .refine(
-      (date) => !date || date < new Date(),
-      "Date of birth must be in the past"
-    ),
+  age: z
+    .number()
+    .int("Age must be a whole number")
+    .min(0, "Age must be 0 or greater")
+    .max(120, "Age must be 120 or less")
+    .optional(),
   reasonForVisit: z
     .string()
     .trim()
@@ -167,6 +160,9 @@ export const patchAppointmentSchema = z.object({
   bookingChannel: bookingChannelEnum.optional(), // ONLINE, PHONE, WALK_IN, SMS, WHATSAPP
   visitType: visitTypeEnum.optional(), // NEW_CONSULTATION, FOLLOW_UP
   priority: priorityEnum.optional(), // ROUTINE, URGENT, EMERGENCY
+  doctorId: z.string().uuid("Invalid doctor ID").optional().nullable(),
+  totalAmount: z.number().min(0, "Total amount must be 0 or greater").optional().nullable(),
+  paidAmount: z.number().min(0, "Paid amount must be 0 or greater").optional().nullable(),
   reasonForVisit: z
     .string()
     .trim()
@@ -213,19 +209,12 @@ export const confirmAppointmentSchema = z.object({
     .min(1, "Name is required")
     .max(100, "Name must be 100 characters or less"),
   sex: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
-  dateOfBirth: z
-    .string()
-    .optional()
-    .or(z.literal(""))
-    .transform((val) => (val ? new Date(val) : undefined))
-    .refine(
-      (date) => !date || !isNaN(date.getTime()),
-      "Invalid date of birth"
-    )
-    .refine(
-      (date) => !date || date < new Date(),
-      "Date of birth must be in the past"
-    ),
+  age: z
+    .number()
+    .int("Age must be a whole number")
+    .min(0, "Age must be 0 or greater")
+    .max(120, "Age must be 120 or less")
+    .optional(),
   email: z
     .string()
     .trim()
@@ -257,8 +246,13 @@ export const confirmAppointmentSchema = z.object({
   visitType: visitTypeEnum.optional(), // NEW_CONSULTATION or FOLLOW_UP
   // NEW: Priority flag
   priority: priorityEnum.optional(), // ROUTINE, URGENT, or EMERGENCY
+  // Booking method
+  isPhoneBooking: z.boolean().optional(),
   // Doctor selection (required — must select a treating doctor)
   doctorId: z.string().uuid("Invalid doctor ID"),
+  // Payment
+  totalAmount: z.number().min(0, "Total amount must be 0 or greater").optional(),
+  paidAmount: z.number().min(0, "Paid amount must be 0 or greater").optional(),
 });
 
 export type ConfirmAppointmentInput = z.input<typeof confirmAppointmentSchema>;
@@ -283,19 +277,12 @@ export const patchPatientSchema = z.object({
     .email("Invalid email address")
     .optional()
     .or(z.literal("")),
-  dateOfBirth: z
-    .string()
-    .optional()
-    .or(z.literal(""))
-    .transform((val) => (val ? new Date(val) : undefined))
-    .refine(
-      (date) => !date || !isNaN(date.getTime()),
-      "Invalid date of birth"
-    )
-    .refine(
-      (date) => !date || date < new Date(),
-      "Date of birth must be in the past"
-    ),
+  age: z
+    .number()
+    .int("Age must be a whole number")
+    .min(0, "Age must be 0 or greater")
+    .max(120, "Age must be 120 or less")
+    .optional(),
   sex: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
 });
 

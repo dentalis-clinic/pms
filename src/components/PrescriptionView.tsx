@@ -21,23 +21,13 @@ interface PrescriptionViewProps {
         name: string;
         phone: string;
         email: string | null;
-        dateOfBirth: string | null;
+        age: number | null;
         address: string | null;
       };
     };
   };
 }
 
-function calculateAge(dob: string): string {
-  const birthDate = new Date(dob);
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return `${age} yrs`;
-}
 
 export default function PrescriptionView({ prescription }: PrescriptionViewProps) {
   const { appointment } = prescription;
@@ -121,12 +111,10 @@ export default function PrescriptionView({ prescription }: PrescriptionViewProps
               <span className="font-medium text-gray-700">Patient: </span>
               <span className="text-gray-900">{patient.name}</span>
             </p>
-            {patient.dateOfBirth && (
+            {patient.age != null && (
               <p>
                 <span className="font-medium text-gray-700">Age: </span>
-                <span className="text-gray-900">
-                  {calculateAge(patient.dateOfBirth)}
-                </span>
+                <span className="text-gray-900">{patient.age} yrs</span>
               </p>
             )}
             <p>

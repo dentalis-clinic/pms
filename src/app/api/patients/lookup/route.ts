@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
         name: true,
         sex: true,
         email: true,
-        dateOfBirth: true,
+        age: true,
         appointments: {
           orderBy: { preferredDateTime: "desc" },
           take: 1,
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       name: p.name,
       sex: p.sex,
       email: p.email,
-      dateOfBirth: p.dateOfBirth?.toISOString() ?? null,
+      age: p.age,
       lastVisitDate:
         p.appointments.length > 0
           ? p.appointments[0].preferredDateTime.toISOString()

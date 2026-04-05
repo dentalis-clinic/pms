@@ -67,9 +67,7 @@ export async function GET(
             prescription.appointment.patient.createdAt.toISOString(),
           updatedAt:
             prescription.appointment.patient.updatedAt.toISOString(),
-          dateOfBirth:
-            prescription.appointment.patient.dateOfBirth?.toISOString() ??
-            null,
+          age: prescription.appointment.patient.age,
         },
       },
     };

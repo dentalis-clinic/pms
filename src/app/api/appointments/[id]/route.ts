@@ -76,6 +76,9 @@ export async function PATCH(
     if (data.bookingChannel !== undefined) updateData.bookingChannel = data.bookingChannel;
     if (data.visitType !== undefined) updateData.visitType = data.visitType;
     if (data.priority !== undefined) updateData.priority = data.priority;
+    if (data.doctorId !== undefined) updateData.doctorId = data.doctorId ?? null;
+    if (data.totalAmount !== undefined) updateData.totalAmount = data.totalAmount ?? null;
+    if (data.paidAmount !== undefined) updateData.paidAmount = data.paidAmount ?? null;
     if (data.reasonForVisit !== undefined)
       updateData.reasonForVisit = data.reasonForVisit || null;
     if (data.notes !== undefined) updateData.notes = data.notes || null;
@@ -105,7 +108,7 @@ export async function PATCH(
         ...updated.patient,
         createdAt: updated.patient.createdAt.toISOString(),
         updatedAt: updated.patient.updatedAt.toISOString(),
-        dateOfBirth: updated.patient.dateOfBirth?.toISOString() ?? null,
+        age: updated.patient.age,
       },
       prescription: updated.prescription
         ? {

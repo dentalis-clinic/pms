@@ -29,7 +29,7 @@ export default async function BlankPrescriptionPage({ params }: PageProps) {
       name: appointment.patient.name,
       phone: appointment.patient.phone,
       email: appointment.patient.email,
-      dateOfBirth: appointment.patient.dateOfBirth?.toISOString() ?? null,
+      age: appointment.patient.age,
       sex: appointment.patient.sex,
       address: appointment.patient.address,
     },

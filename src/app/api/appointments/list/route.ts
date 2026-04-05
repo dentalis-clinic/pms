@@ -80,17 +80,18 @@ export async function GET(request: NextRequest) {
       orderBy,
     });
 
-    // Serialize dates
+    // Serialize dates and Decimal fields
     const serialized = appointments.map((a) => ({
       ...a,
       createdAt: a.createdAt.toISOString(),
       updatedAt: a.updatedAt.toISOString(),
       preferredDateTime: a.preferredDateTime.toISOString(),
+      totalAmount: a.totalAmount != null ? Number(a.totalAmount) : null,
+      paidAmount: a.paidAmount != null ? Number(a.paidAmount) : null,
       patient: {
         ...a.patient,
         createdAt: a.patient.createdAt.toISOString(),
         updatedAt: a.patient.updatedAt.toISOString(),
-        dateOfBirth: a.patient.dateOfBirth?.toISOString() ?? null,
       },
       // Only id + prescriptionId are selected — no date serialization needed
       prescription: a.prescription ?? null,

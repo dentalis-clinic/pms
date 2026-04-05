@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     const fullData = data as typeof data & {
       existingPatientId?: string;
       email?: string;
-      dateOfBirth?: Date;
+      age?: number;
       reasonForVisit?: string;
     };
 
@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
         name: data.name,
         phone: normalizedPhone,
         email: fullData.email || null,
-        dateOfBirth: fullData.dateOfBirth || null,
+        age: fullData.age ?? null,
       });
 
       patientId = result.patientId;

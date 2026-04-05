@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { patchPatientSchema } from "@/lib/validations/appointment";
 import { normalizePhoneNumber } from "@/lib/utils/phone";
 import { validateOrigin } from "@/lib/utils/csrf";
+import { Prisma } from "@/generated/prisma/client";
 
 export async function PATCH(
   request: NextRequest,
@@ -46,8 +47,7 @@ export async function PATCH(
     const updateData: Record<string, unknown> = {};
     if (data.name !== undefined) updateData.name = data.name;
     if (data.email !== undefined) updateData.email = data.email || null;
-    if (data.dateOfBirth !== undefined)
-      updateData.dateOfBirth = data.dateOfBirth ?? null;
+    if (data.age !== undefined) updateData.age = data.age ?? null;
     if (data.sex !== undefined) updateData.sex = data.sex;
 
     // Normalize phone if provided
@@ -73,12 +73,60 @@ export async function PATCH(
       ...updated,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
-      dateOfBirth: updated.dateOfBirth?.toISOString() ?? null,
     };
 
     return NextResponse.json({ success: true, patient });
   } catch (error) {
     console.error("PATCH /api/patients/[id] error:", error);
+    return NextResponse.json(
+      { success: false, error: "An unexpected error occurred." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const csrfError = validateOrigin(request);
+    if (csrfError) return csrfError;
+
+    const { id } = await params;
+
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
+
+    const existing = await prisma.patient.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: "Patient not found" },
+        { status: 404 }
+      );
+    }
+
+    // Cascade: prescriptions → appointments → patient
+    await prisma.$transaction(async (tx) => {
+      const appointments = await tx.appointment.findMany({
+        where: { patientId: id },
+        select: { id: true },
+      });
+      const appointmentIds = appointments.map((a) => a.id);
+
+      if (appointmentIds.length > 0) {
+        await tx.prescription.deleteMany({
+          where: { appointmentId: { in: appointmentIds } },
+        });
+        await tx.appointment.deleteMany({ where: { patientId: id } });
+      }
+
+      await tx.patient.delete({ where: { id } });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("DELETE /api/patients/[id] error:", error);
     return NextResponse.json(
       { success: false, error: "An unexpected error occurred." },
       { status: 500 }

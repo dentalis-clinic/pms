@@ -2,11 +2,13 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { formatISTDateTime } from "@/lib/utils/date";
-import type { AppointmentRow } from "@/types/patient";
-import type { AppointmentStatus } from "@/generated/prisma/client";
+import type { AppointmentRow, PatientRow } from "@/types/patient";
 import { Input, Badge } from "@/components/ui";
 import { Button } from "@/components/ui/Button";
-import { STATUS_BADGE, CHANNEL_LABEL, VISIT_TYPE_LABEL } from "@/lib/constants/appointment";
+import { STATUS_BADGE, VISIT_TYPE_LABEL, PRIORITY_BADGE } from "@/lib/constants/appointment";
+import { PatientDetailsModal } from "@/components/admin/PatientDetailsModal";
+import { AppointmentDetailsModal } from "@/components/admin/AppointmentDetailsModal";
+import { EditAppointmentModal } from "@/components/admin/EditAppointmentModal";
 
 interface PatientTableProps {
   appointments: AppointmentRow[];
@@ -16,29 +18,30 @@ interface PatientTableProps {
   search?: string;
 }
 
-type SortKey = "patientId" | "name" | "preferredDateTime" | "createdAt" | "status";
+type SortKey = "name" | "preferredDateTime" | "status";
 
 // --- Kebab Menu ---
 
 function KebabMenu({
-  appointmentId,
-  status,
+  appointment,
+  onEdit,
   onRefresh,
 }: {
-  appointmentId: string;
-  status: AppointmentStatus;
+  appointment: AppointmentRow;
+  onEdit: () => void;
   onRefresh: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
+  const [confirmingAction, setConfirmingAction] = useState<"cancel" | "delete" | null>(null);
+  const [acting, setActing] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
 
+  const { status } = appointment;
   const canCancel = status === "PENDING" || status === "OVERDUE" || status === "CONFIRMED";
+  const canDelete = status === "COMPLETED" || status === "CANCELLED";
 
-  // Close on click outside
   useEffect(() => {
     if (!open) return;
     function handleClick(e: MouseEvent) {
@@ -49,7 +52,7 @@ function KebabMenu({
         !buttonRef.current.contains(e.target as Node)
       ) {
         setOpen(false);
-        setConfirming(false);
+        setConfirmingAction(null);
       }
     }
     document.addEventListener("mousedown", handleClick);
@@ -57,35 +60,48 @@ function KebabMenu({
   }, [open]);
 
   const handleCancel = useCallback(async () => {
-    setCancelling(true);
+    setActing(true);
     try {
-      const res = await fetch(`/api/appointments/${appointmentId}`, {
+      const res = await fetch(`/api/appointments/${appointment.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "CANCELLED" }),
       });
-      if (res.ok) {
-        onRefresh();
-      }
+      if (res.ok) { onRefresh(); setOpen(false); }
     } catch {
-      // silently fail, user can retry
+      // silently fail
     } finally {
-      setCancelling(false);
-      setOpen(false);
-      setConfirming(false);
+      setActing(false);
+      setConfirmingAction(null);
     }
-  }, [appointmentId, onRefresh]);
+  }, [appointment.id, onRefresh]);
 
-  function toggleMenu() {
+  const handleDelete = useCallback(async () => {
+    setActing(true);
+    try {
+      const res = await fetch("/api/appointments/bulk-delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [appointment.id] }),
+      });
+      if (res.ok) { onRefresh(); setOpen(false); }
+    } catch {
+      // silently fail
+    } finally {
+      setActing(false);
+      setConfirmingAction(null);
+    }
+  }, [appointment.id, onRefresh]);
+
+  function toggleMenu(e: React.MouseEvent) {
+    e.stopPropagation();
     if (!open && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      setMenuPos({ top: rect.bottom + 4, left: rect.right - 176 }); // 176 = w-44 (11rem)
+      setMenuPos({ top: rect.bottom + 4, left: rect.right - 192 });
     }
-    setOpen(!open);
-    setConfirming(false);
+    setOpen((prev) => !prev);
+    setConfirmingAction(null);
   }
-
-  if (!canCancel) return null;
 
   return (
     <>
@@ -93,53 +109,99 @@ function KebabMenu({
         ref={buttonRef}
         type="button"
         onClick={toggleMenu}
-        className="rounded p-1 text-text-tertiary hover:bg-surface-tertiary hover:text-text-secondary"
+        className="rounded p-1 text-text-secondary hover:bg-surface-tertiary hover:text-text-primary"
         aria-label="More actions"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          className="h-4 w-4"
-        >
-          <path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+          <path d="M10 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM10 8.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM11.5 15.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
         </svg>
       </button>
 
       {open && (
         <div
           ref={menuRef}
-          className="fixed z-50 w-44 rounded-md border border-border-primary bg-surface-primary shadow-lg"
+          className="fixed z-50 w-48 rounded-md border border-border-primary bg-surface-primary shadow-lg"
           style={{ top: menuPos.top, left: menuPos.left }}
+          onClick={(e) => e.stopPropagation()}
         >
-          {!confirming ? (
-            <button
-              type="button"
-              onClick={() => setConfirming(true)}
-              className="w-full px-3 py-2 text-left text-sm text-text-error hover:bg-surface-error/50"
-            >
-              Cancel Appointment
-            </button>
+          {confirmingAction === null ? (
+            <div className="py-1">
+              {/* Edit — always available */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen(false);
+                  onEdit();
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-secondary"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-text-secondary">
+                  <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
+                </svg>
+                Edit
+              </button>
+
+              {/* Cancel — PENDING, OVERDUE, CONFIRMED */}
+              {canCancel && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmingAction("cancel");
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-error hover:bg-surface-error/50"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clipRule="evenodd" />
+                  </svg>
+                  Cancel Appointment
+                </button>
+              )}
+
+              {/* Delete — COMPLETED, CANCELLED */}
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmingAction("delete");
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-error hover:bg-surface-error/50"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                    <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clipRule="evenodd" />
+                  </svg>
+                  Delete
+                </button>
+              )}
+            </div>
           ) : (
             <div className="p-3 space-y-2">
               <p className="text-xs text-text-secondary">
-                Are you sure? This cannot be undone.
+                {confirmingAction === "cancel"
+                  ? "Cancel this appointment? This cannot be undone."
+                  : "Permanently delete this appointment? This cannot be undone."}
               </p>
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={handleCancel}
-                  disabled={cancelling}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    confirmingAction === "cancel" ? handleCancel() : handleDelete();
+                  }}
+                  disabled={acting}
                   className="flex-1 rounded bg-interactive-error px-2 py-1 text-xs text-text-inverse hover:bg-interactive-error-hover disabled:opacity-50"
                 >
-                  {cancelling ? "..." : "Yes, Cancel"}
+                  {acting ? "..." : "Yes"}
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setConfirming(false);
-                    setOpen(false);
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmingAction(null);
                   }}
+                  disabled={acting}
                   className="flex-1 rounded border border-border-secondary px-2 py-1 text-xs text-text-secondary hover:bg-surface-secondary"
                 >
                   No
@@ -164,7 +226,7 @@ export default function PatientTable({
 }: PatientTableProps) {
   const [internalSearch, setInternalSearch] = useState("");
   const search = externalSearch ?? internalSearch;
-  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
+  const [sortKey, setSortKey] = useState<SortKey>("preferredDateTime");
   const [sortAsc, setSortAsc] = useState(false);
 
   // Selection state
@@ -173,8 +235,13 @@ export default function PatientTable({
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirmingAction, setConfirmingAction] = useState<"cancel" | "delete" | null>(null);
 
-  // Mark Complete state
+  // Mark Complete inline state
   const [completingId, setCompletingId] = useState<string | null>(null);
+
+  // Modal state
+  const [selectedPatient, setSelectedPatient] = useState<PatientRow | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<AppointmentRow | null>(null);
+  const [editingAppointment, setEditingAppointment] = useState<AppointmentRow | null>(null);
 
   const handleMarkComplete = useCallback(async (appointmentId: string) => {
     setCompletingId(appointmentId);
@@ -192,7 +259,7 @@ export default function PatientTable({
     }
   }, [onRefresh]);
 
-  // Clear selection when appointments change (filter/refresh/tab switch)
+  // Clear selection when appointments change
   useEffect(() => {
     setSelectedIds(new Set());
     setConfirmingAction(null);
@@ -214,17 +281,11 @@ export default function PatientTable({
     arr.sort((a, b) => {
       let cmp = 0;
       switch (sortKey) {
-        case "patientId":
-          cmp = a.patient.patientId.localeCompare(b.patient.patientId);
-          break;
         case "name":
           cmp = a.patient.name.localeCompare(b.patient.name);
           break;
         case "preferredDateTime":
           cmp = a.preferredDateTime.localeCompare(b.preferredDateTime);
-          break;
-        case "createdAt":
-          cmp = a.createdAt.localeCompare(b.createdAt);
           break;
         case "status":
           cmp = a.status.localeCompare(b.status);
@@ -235,7 +296,6 @@ export default function PatientTable({
     return arr;
   }, [filtered, sortKey, sortAsc]);
 
-  // Selection computations
   const someSelected = selectedIds.size > 0;
   const allSelected = sorted.length > 0 && sorted.every((a) => selectedIds.has(a.id));
 
@@ -249,7 +309,6 @@ export default function PatientTable({
     [selectedAppointments]
   );
 
-  // Toggle helpers
   function toggleSelectAll() {
     if (allSelected) {
       setSelectedIds(new Set());
@@ -270,7 +329,6 @@ export default function PatientTable({
     setConfirmingAction(null);
   }
 
-  // Bulk action handlers
   async function executeBulkCancel() {
     setBulkCancelling(true);
     try {
@@ -284,7 +342,7 @@ export default function PatientTable({
         onRefresh();
       }
     } catch {
-      // silently fail, user can retry
+      // silently fail
     } finally {
       setBulkCancelling(false);
       setConfirmingAction(null);
@@ -304,7 +362,7 @@ export default function PatientTable({
         onRefresh();
       }
     } catch {
-      // silently fail, user can retry
+      // silently fail
     } finally {
       setBulkDeleting(false);
       setConfirmingAction(null);
@@ -325,6 +383,8 @@ export default function PatientTable({
 
   const thClass =
     "px-3 py-2 text-left text-xs font-medium text-text-hint uppercase tracking-wider cursor-pointer select-none hover:text-text-brand";
+  const thStatic =
+    "px-3 py-2 text-left text-xs font-medium text-text-hint uppercase tracking-wider";
 
   if (appointments.length === 0) {
     return (
@@ -457,27 +517,21 @@ export default function PatientTable({
                   aria-label="Select all"
                 />
               </th>
-              <th className={thClass} onClick={() => handleSort("patientId")}>
-                Patient ID{sortIndicator("patientId")}
-              </th>
               <th className={thClass} onClick={() => handleSort("name")}>
                 Name{sortIndicator("name")}
               </th>
-              <th className={thClass}>Phone</th>
-              <th className={thClass}>Visit</th>
-              <th className={thClass} onClick={() => handleSort("status")}>
-                Status{sortIndicator("status")}
-              </th>
+              <th className={thStatic}>Phone</th>
+              <th className={thStatic}>Visit type</th>
+              <th className={thStatic}>Doctor</th>
               <th className={thClass} onClick={() => handleSort("preferredDateTime")}>
                 Scheduled{sortIndicator("preferredDateTime")}
               </th>
-              <th className={thClass}>Reason</th>
-              <th className={thClass} onClick={() => handleSort("createdAt")}>
-                Created{sortIndicator("createdAt")}
+              <th className={thStatic}>Payment</th>
+              <th className={thClass} onClick={() => handleSort("status")}>
+                Status{sortIndicator("status")}
               </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-text-hint uppercase tracking-wider">
-                Actions
-              </th>
+              <th className={thStatic}>Print</th>
+              <th className={thStatic}>Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-primary bg-surface-primary">
@@ -485,21 +539,24 @@ export default function PatientTable({
               const isHighlighted = highlightId === a.id;
               const statusBadge = STATUS_BADGE[a.status];
 
-              // Channel icon mapping
-              const channelIcon = {
-                ONLINE: "\u{1F310}",
-                PHONE: "\u{1F4F1}",
-                WALK_IN: "\u{1F464}",
-                SMS: "\u{1F4AC}",
-                WHATSAPP: "\u{1F4AC}",
-              }[a.bookingChannel];
+              const paymentText = (() => {
+                if (a.totalAmount == null && a.paidAmount == null) return "—";
+                const paid = a.paidAmount != null ? `₹${a.paidAmount}` : "₹0";
+                const total = a.totalAmount != null ? `₹${a.totalAmount}` : "—";
+                return `${paid}/${total}`;
+              })();
 
               return (
                 <tr
                   key={a.id}
-                  className={`text-sm ${isHighlighted ? "animate-pulse bg-surface-warning" : ""} ${selectedIds.has(a.id) ? "bg-surface-brand/5" : ""}`}
+                  onClick={() => setSelectedAppointment(a)}
+                  className={`cursor-pointer text-sm hover:bg-surface-secondary/50 ${isHighlighted ? "animate-pulse bg-surface-warning" : ""} ${selectedIds.has(a.id) ? "bg-surface-brand/5" : ""}`}
                 >
-                  <td className="whitespace-nowrap px-3 py-2">
+                  {/* Checkbox */}
+                  <td
+                    className="whitespace-nowrap px-3 py-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <input
                       type="checkbox"
                       checked={selectedIds.has(a.id)}
@@ -508,59 +565,93 @@ export default function PatientTable({
                       aria-label={`Select appointment for ${a.patient.name}`}
                     />
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-text-brand">
-                    {a.patient.patientId}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-text-primary">
-                    {a.patient.name}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-text-secondary">
-                    {a.patient.phone}
-                  </td>
+
+                  {/* Name — clickable for patient details */}
                   <td className="whitespace-nowrap px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs opacity-60" title={CHANNEL_LABEL[a.bookingChannel]}>
-                        {channelIcon}
-                      </span>
-                      {a.visitType === "FOLLOW_UP" && (
-                        <Badge variant="neutral" className="text-xs">
-                          {"\u21A9\uFE0F"} {VISIT_TYPE_LABEL.FOLLOW_UP}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPatient(a.patient);
+                        }}
+                        className="cursor-pointer text-sm font-medium text-text-brand underline-offset-2 hover:underline"
+                      >
+                        {a.patient.name}
+                      </button>
+                      {a.priority === "URGENT" && (
+                        <Badge variant={PRIORITY_BADGE.URGENT.variant} className="text-xs">
+                          Urgent
+                        </Badge>
+                      )}
+                      {a.priority === "EMERGENCY" && (
+                        <Badge variant={PRIORITY_BADGE.EMERGENCY.variant} className="text-xs">
+                          Emergency
                         </Badge>
                       )}
                     </div>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    <Badge
-                      variant={statusBadge.variant}
-                      className={a.priority === "EMERGENCY" ? "border-2 border-red-500" : ""}
-                    >
-                      {a.priority === "EMERGENCY" && "\u{1F6A8} "}
-                      {statusBadge.label}
-                    </Badge>
+
+                  {/* Phone */}
+                  <td className="whitespace-nowrap px-3 py-2 text-text-secondary">
+                    {a.patient.phone}
                   </td>
+
+                  {/* Visit type */}
+                  <td className="whitespace-nowrap px-3 py-2 text-text-secondary">
+                    {VISIT_TYPE_LABEL[a.visitType]}
+                  </td>
+
+                  {/* Doctor */}
+                  <td className="whitespace-nowrap px-3 py-2 text-text-secondary">
+                    {a.doctor?.name ?? <span className="text-text-tertiary">—</span>}
+                  </td>
+
+                  {/* Scheduled */}
                   <td className="whitespace-nowrap px-3 py-2 text-text-secondary">
                     {formatISTDateTime(new Date(a.preferredDateTime))}
                   </td>
-                  <td className="max-w-[200px] truncate px-3 py-2 text-text-secondary" title={a.reasonForVisit ?? undefined}>
-                    {a.reasonForVisit ?? <span className="text-text-tertiary">&mdash;</span>}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-text-hint text-xs">
-                    {formatISTDateTime(new Date(a.createdAt))}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    <div className="flex items-center gap-1.5">
-                      {/* PENDING or OVERDUE → Confirm button (patient arrived) */}
-                      {(a.status === "PENDING" || a.status === "OVERDUE") && (
-                        <button
-                          type="button"
-                          onClick={() => onConfirmAppointment(a)}
-                          className="rounded bg-interactive-primary px-2.5 py-1 text-xs font-medium text-text-inverse hover:bg-interactive-primary-hover"
-                        >
-                          Confirm
-                        </button>
-                      )}
 
-                      {/* CONFIRMED → Mark Complete + Print Prescription */}
+                  {/* Payment */}
+                  <td className="whitespace-nowrap px-3 py-2 text-text-secondary">
+                    {paymentText === "—" ? (
+                      <span className="text-text-tertiary">—</span>
+                    ) : (
+                      paymentText
+                    )}
+                  </td>
+
+                  {/* Status */}
+                  <td className="whitespace-nowrap px-3 py-2">
+                    <Badge variant={statusBadge.variant}>
+                      {statusBadge.label}
+                    </Badge>
+                  </td>
+
+                  {/* Print */}
+                  <td className="whitespace-nowrap px-3 py-2">
+                    {(a.status === "CONFIRMED" || a.status === "COMPLETED") && (
+                      <a
+                        href={`/admin/dashboard/prescription/blank/${a.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1.5 rounded border border-border-secondary px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-surface-secondary hover:text-text-primary"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                          <path fillRule="evenodd" d="M5 2.75C5 1.784 5.784 1 6.75 1h6.5c.966 0 1.75.784 1.75 1.75v3.552c.377.046.752.097 1.126.153A2.679 2.679 0 0118 9.086v6.664a2.679 2.679 0 01-2.679 2.679H4.679A2.679 2.679 0 012 15.75V9.086a2.679 2.679 0 012.874-2.631c.374-.056.749-.107 1.126-.153V2.75zm1.5 0v3.324a49.289 49.289 0 016.996 0V2.75a.25.25 0 00-.25-.25h-6.5a.25.25 0 00-.25.25zm-3.3 7.22a1.179 1.179 0 011.628-1.628l.002.001A47.806 47.806 0 0110 8.498a47.8 47.8 0 014.17.846l.003-.002a1.179 1.179 0 011.628 1.628 47.806 47.806 0 01-5.8.846 47.8 47.8 0 01-5.8-.846zM5 13.5a.75.75 0 01.75-.75h8.5a.75.75 0 010 1.5h-8.5A.75.75 0 015 13.5zm.75 2.25a.75.75 0 000 1.5h8.5a.75.75 0 000-1.5h-8.5z" clipRule="evenodd" />
+                        </svg>
+                        Print
+                      </a>
+                    )}
+                  </td>
+
+                  {/* Actions: Mark Complete + Kebab */}
+                  <td
+                    className="whitespace-nowrap px-3 py-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center gap-1.5">
                       {a.status === "CONFIRMED" && (
                         <button
                           type="button"
@@ -568,26 +659,12 @@ export default function PatientTable({
                           disabled={completingId === a.id}
                           className="rounded bg-interactive-success px-2.5 py-1 text-xs font-medium text-text-inverse hover:bg-interactive-success-hover disabled:opacity-50"
                         >
-                          {completingId === a.id ? "..." : "Mark Complete"}
+                          {completingId === a.id ? "..." : "Complete"}
                         </button>
                       )}
-
-                      {/* CONFIRMED or COMPLETED → Print Prescription */}
-                      {(a.status === "CONFIRMED" || a.status === "COMPLETED") && (
-                        <a
-                          href={`/admin/dashboard/prescription/blank/${a.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded border border-border-secondary px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-surface-secondary hover:text-text-primary"
-                        >
-                          Print Prescription
-                        </a>
-                      )}
-
-                      {/* Kebab menu for cancellation */}
                       <KebabMenu
-                        appointmentId={a.id}
-                        status={a.status}
+                        appointment={a}
+                        onEdit={() => setEditingAppointment(a)}
                         onRefresh={onRefresh}
                       />
                     </div>
@@ -603,6 +680,33 @@ export default function PatientTable({
         {filtered.length} appointment{filtered.length !== 1 ? "s" : ""}
         {search && ` matching "${search}"`}
       </p>
+
+      {/* Patient Details Modal */}
+      {selectedPatient && (
+        <PatientDetailsModal
+          patient={selectedPatient}
+          onClose={() => setSelectedPatient(null)}
+        />
+      )}
+
+      {/* Appointment Details Modal */}
+      {selectedAppointment && (
+        <AppointmentDetailsModal
+          appointment={selectedAppointment}
+          onClose={() => setSelectedAppointment(null)}
+          onConfirmAppointment={onConfirmAppointment}
+          onRefresh={onRefresh}
+        />
+      )}
+
+      {/* Edit Appointment Modal */}
+      {editingAppointment && (
+        <EditAppointmentModal
+          appointment={editingAppointment}
+          onClose={() => setEditingAppointment(null)}
+          onRefresh={onRefresh}
+        />
+      )}
     </div>
   );
 }

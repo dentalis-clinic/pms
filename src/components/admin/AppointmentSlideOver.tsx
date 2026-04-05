@@ -22,7 +22,9 @@ export default function AppointmentSlideOver() {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [sex, setSex] = useState<"MALE" | "FEMALE" | "OTHER" | "">("");
-  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [age, setAge] = useState<string>("");
+  const [totalAmount, setTotalAmount] = useState<string>("");
+  const [paidAmount, setPaidAmount] = useState<string>("");
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [preferredDateTime, setPreferredDateTime] = useState("");
@@ -99,11 +101,7 @@ export default function AppointmentSlideOver() {
       setPhone(appointment.patient.phone);
       setName(appointment.patient.name);
       setSex(appointment.patient.sex ?? "");
-      setDateOfBirth(
-        appointment.patient.dateOfBirth
-          ? appointment.patient.dateOfBirth.split("T")[0]
-          : ""
-      );
+      setAge(appointment.patient.age != null ? String(appointment.patient.age) : "");
       setEmail(appointment.patient.email ?? "");
       setAddress(appointment.patient.address ?? "");
       setPreferredDateTime(
@@ -113,12 +111,14 @@ export default function AppointmentSlideOver() {
       );
       setReasonForVisit(appointment.reasonForVisit ?? "");
       setSelectedDoctorId(appointment.doctorId ?? "");
+      setTotalAmount("");
+      setPaidAmount("");
     } else {
       // New appointment mode — blank with current datetime
       setPhone("");
       setName("");
       setSex("");
-      setDateOfBirth("");
+      setAge("");
       setEmail("");
       setAddress("");
       setPreferredDateTime(
@@ -126,6 +126,8 @@ export default function AppointmentSlideOver() {
       );
       setReasonForVisit("");
       setSelectedDoctorId("");
+      setTotalAmount("");
+      setPaidAmount("");
     }
   }, [open, appointment]);
 
@@ -201,7 +203,7 @@ export default function AppointmentSlideOver() {
   function autoFillFromPatient(patient: PatientMatch) {
     setName(patient.name);
     setSex((patient.sex as "MALE" | "FEMALE" | "OTHER") ?? "");
-    setDateOfBirth(patient.dateOfBirth ? patient.dateOfBirth.split("T")[0] : "");
+    setAge(patient.age != null ? String(patient.age) : "");
     setEmail(patient.email ?? "");
   }
 
@@ -218,7 +220,7 @@ export default function AppointmentSlideOver() {
       setIsNewPatient(true);
       setName("");
       setSex("");
-      setDateOfBirth("");
+      setAge("");
       setEmail("");
       return;
     }
@@ -238,16 +240,22 @@ export default function AppointmentSlideOver() {
     e.preventDefault();
     setError("");
 
+    const parsedAge = age !== "" ? parseInt(age, 10) : undefined;
+    const parsedTotal = totalAmount !== "" ? parseFloat(totalAmount) : undefined;
+    const parsedPaid = paidAmount !== "" ? parseFloat(paidAmount) : undefined;
+
     const payload: Record<string, unknown> = {
       phone,
       name,
       sex: sex || undefined,
-      dateOfBirth: dateOfBirth || undefined,
+      age: parsedAge,
       email: email || undefined,
       address: address || undefined,
       preferredDateTime: new Date(preferredDateTime).toISOString(),
       reasonForVisit: reasonForVisit || undefined,
       allowOverride: true,
+      totalAmount: parsedTotal,
+      paidAmount: parsedPaid,
     };
 
     if (isConfirmMode) {
@@ -442,15 +450,17 @@ export default function AppointmentSlideOver() {
               </div>
             </FormField>
 
-            {/* Date of Birth */}
-            <FormField label="Date of Birth" htmlFor="dob" missing={!dateOfBirth && isConfirmMode}>
+            {/* Age */}
+            <FormField label="Age (Years)" htmlFor="age">
               <Input
-                id="dob"
-                type="date"
-                value={dateOfBirth}
-                onChange={(e) => setDateOfBirth(e.target.value)}
+                id="age"
+                type="number"
+                placeholder="e.g. 32"
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
                 disabled={submitting}
-                max={DateTime.now().setZone("Asia/Kolkata").toFormat("yyyy-MM-dd")}
+                min={0}
+                max={120}
               />
             </FormField>
 
@@ -641,6 +651,41 @@ export default function AppointmentSlideOver() {
             </FormField>
           </fieldset>
 
+          {/* --- Payment Section --- */}
+          <fieldset className="space-y-4">
+            <legend className="text-sm font-semibold text-text-secondary uppercase tracking-wide">
+              Payment
+            </legend>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Total Amount (₹)" htmlFor="totalAmount" hint="Optional">
+                <Input
+                  id="totalAmount"
+                  type="number"
+                  placeholder="0.00"
+                  value={totalAmount}
+                  onChange={(e) => setTotalAmount(e.target.value)}
+                  disabled={submitting}
+                  min={0}
+                  step="0.01"
+                />
+              </FormField>
+
+              <FormField label="Paid Amount (₹)" htmlFor="paidAmount" hint="Optional">
+                <Input
+                  id="paidAmount"
+                  type="number"
+                  placeholder="0.00"
+                  value={paidAmount}
+                  onChange={(e) => setPaidAmount(e.target.value)}
+                  disabled={submitting}
+                  min={0}
+                  step="0.01"
+                />
+              </FormField>
+            </div>
+          </fieldset>
+
           {/* --- Submit --- */}
           <div className="border-t border-border-primary pt-4">
             <Button
@@ -659,7 +704,7 @@ export default function AppointmentSlideOver() {
             patientName={name}
             patientPhone={phone}
             sex={sex}
-            dateOfBirth={dateOfBirth}
+            age={age}
             preferredDateTime={preferredDateTime}
             reasonForVisit={reasonForVisit}
             doctorName={doctors.find((d) => d.id === selectedDoctorId)?.name ?? ""}

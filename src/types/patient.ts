@@ -16,7 +16,7 @@ export interface PatientRow {
   name: string;
   phone: string;
   email: string | null;
-  dateOfBirth: string | null;
+  age: number | null;
   sex: Sex | null;
   address: string | null;
   createdAt: string;
@@ -29,7 +29,7 @@ export interface PatientMatch {
   name: string;
   sex: Sex | null;
   email: string | null;
-  dateOfBirth: string | null;
+  age: number | null;
   lastVisitDate: string | null;
 }
 
@@ -49,6 +49,8 @@ export interface AppointmentRow {
   adminUserId: string | null;
   doctorId: string | null;
   notes: string | null;
+  totalAmount: number | null;
+  paidAmount: number | null;
   createdAt: string;
   updatedAt: string;
   // Joined

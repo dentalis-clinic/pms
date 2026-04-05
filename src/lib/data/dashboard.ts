@@ -97,11 +97,12 @@ export async function fetchAppointments(dateFilter: DateFilter = "today") {
     createdAt: a.createdAt.toISOString(),
     updatedAt: a.updatedAt.toISOString(),
     preferredDateTime: a.preferredDateTime.toISOString(),
+    totalAmount: a.totalAmount != null ? Number(a.totalAmount) : null,
+    paidAmount: a.paidAmount != null ? Number(a.paidAmount) : null,
     patient: {
       ...a.patient,
       createdAt: a.patient.createdAt.toISOString(),
       updatedAt: a.patient.updatedAt.toISOString(),
-      dateOfBirth: a.patient.dateOfBirth?.toISOString() ?? null,
     },
     prescription: a.prescription ?? null,
   }));

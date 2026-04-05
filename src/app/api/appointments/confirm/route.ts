@@ -98,8 +98,7 @@ export async function POST(request: NextRequest) {
       if (data.sex) patientUpdates.sex = data.sex as Sex;
       if (data.email) patientUpdates.email = data.email;
       if (data.address) patientUpdates.address = data.address;
-      if (data.dateOfBirth)
-        patientUpdates.dateOfBirth = data.dateOfBirth;
+      if (data.age != null) patientUpdates.age = data.age;
 
       const updated = await prisma.$transaction(
         async (tx) => {
@@ -122,6 +121,8 @@ export async function POST(request: NextRequest) {
               preferredDateTime: data.preferredDateTime,
               adminUserId: admin.id,
               doctorId: data.doctorId,
+              totalAmount: data.totalAmount != null ? data.totalAmount : undefined,
+              paidAmount: data.paidAmount != null ? data.paidAmount : undefined,
             },
           });
         },
@@ -157,8 +158,7 @@ export async function POST(request: NextRequest) {
       if (data.sex) patientUpdates.sex = data.sex as Sex;
       if (data.email && !patient.email) patientUpdates.email = data.email;
       if (data.address && !patient.address) patientUpdates.address = data.address;
-      if (data.dateOfBirth && !patient.dateOfBirth)
-        patientUpdates.dateOfBirth = data.dateOfBirth;
+      if (data.age != null && patient.age == null) patientUpdates.age = data.age;
 
       if (Object.keys(patientUpdates).length > 0) {
         await prisma.patient.update({
@@ -181,7 +181,7 @@ export async function POST(request: NextRequest) {
             data: {
               patientId: patient.id,
               type: appointmentType,
-              bookingChannel: "WALK_IN",
+              bookingChannel: data.isPhoneBooking ? "PHONE" : "WALK_IN",
               visitType: data.visitType === "FOLLOW_UP" ? "FOLLOW_UP" : "NEW_CONSULTATION",
               status: "CONFIRMED",
               preferredDateTime: data.preferredDateTime,
@@ -189,6 +189,8 @@ export async function POST(request: NextRequest) {
               submittedBy: "ADMIN",
               adminUserId: admin.id,
               doctorId: data.doctorId,
+              totalAmount: data.totalAmount != null ? data.totalAmount : null,
+              paidAmount: data.paidAmount != null ? data.paidAmount : null,
             },
           });
         },
@@ -211,7 +213,7 @@ export async function POST(request: NextRequest) {
       name: data.name,
       phone: normalizedPhone,
       email: data.email || null,
-      dateOfBirth: data.dateOfBirth || null,
+      age: data.age ?? null,
       sex: (data.sex as Sex) || null,
       address: data.address || null,
     });
@@ -227,7 +229,7 @@ export async function POST(request: NextRequest) {
           data: {
             patientId: patient.id,
             type: "WALK_IN",
-            bookingChannel: "WALK_IN",
+            bookingChannel: data.isPhoneBooking ? "PHONE" : "WALK_IN",
             visitType: "NEW_CONSULTATION",
             status: "CONFIRMED",
             preferredDateTime: data.preferredDateTime,
@@ -235,6 +237,8 @@ export async function POST(request: NextRequest) {
             submittedBy: "ADMIN",
             adminUserId: admin.id,
             doctorId: data.doctorId,
+            totalAmount: data.totalAmount != null ? data.totalAmount : null,
+            paidAmount: data.paidAmount != null ? data.paidAmount : null,
           },
         });
       },

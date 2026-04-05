@@ -17,7 +17,7 @@ interface BlankPrescriptionTemplateProps {
       name: string;
       phone: string;
       email: string | null;
-      dateOfBirth: string | null;
+      age: number | null;
       sex: string | null;
       address: string | null;
     };
@@ -29,16 +29,6 @@ interface BlankPrescriptionTemplateProps {
   };
 }
 
-function calculateAge(dob: string): string {
-  const birthDate = new Date(dob);
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return `${age} yrs`;
-}
 
 export default function BlankPrescriptionTemplate({
   appointment,
@@ -96,6 +86,7 @@ export default function BlankPrescriptionTemplate({
 
   return (
     <div>
+      <style>{`@page { size: A4; margin: 0; }`}</style>
       {/* Custom Header — hidden in print */}
       <div className="sticky top-0 z-10 mb-6 flex items-center justify-between border-b border-border-primary bg-white px-6 py-4 shadow-sm print:hidden">
         <div className="flex items-center gap-4">
@@ -139,7 +130,7 @@ export default function BlankPrescriptionTemplate({
       {/* Prescription content — A4-optimized */}
       <div
         ref={prescriptionRef}
-        className="relative print-avoid-break mx-auto max-w-[210mm] rounded-lg border border-border-primary bg-white p-8 shadow-sm print:border-none print:p-0 print:shadow-none overflow-hidden"
+        className="relative mx-auto flex min-h-[297mm] max-w-[210mm] flex-col rounded-lg border border-border-primary bg-white p-8 shadow-sm print:h-[297mm] print:max-w-full print:border-none print:shadow-none"
       >
         {/* Diagonal Watermark */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -190,11 +181,11 @@ export default function BlankPrescriptionTemplate({
               <span className="font-medium text-gray-700">Patient: </span>
               <span className="text-gray-900">{patient.name}</span>
             </p>
-            {(patient.dateOfBirth || patient.sex) && (
+            {(patient.age != null || patient.sex) && (
               <p>
                 <span className="font-medium text-gray-700">Age/Sex: </span>
                 <span className="text-gray-900">
-                  {patient.dateOfBirth ? calculateAge(patient.dateOfBirth).replace(" yrs", "") : "-"}
+                  {patient.age != null ? patient.age : "-"}
                   /{patient.sex ? patient.sex.charAt(0) : "-"}
                 </span>
               </p>
@@ -266,41 +257,43 @@ export default function BlankPrescriptionTemplate({
           <div className="min-h-[80px]"></div>
         </div>
 
-        {/* Next Appointment & Signature area */}
-        <div className="relative z-10 mt-8 flex justify-between print-avoid-break">
-          {/* Next Appointment - Left side */}
-          <div>
-            <h2 className="mb-2 text-sm font-semibold uppercase text-gray-700">
-              Next Appointment:
-            </h2>
-          </div>
+        {/* Next Appointment, Signature & Footer — pushed to bottom */}
+        <div className="relative z-10 mt-auto print-avoid-break">
+          <div className="flex justify-between mb-4">
+            {/* Next Appointment - Left side */}
+            <div>
+              <h2 className="mb-2 text-sm font-semibold uppercase text-gray-700">
+                Next Appointment:
+              </h2>
+            </div>
 
-          {/* Signature - Right side */}
-          <div className="text-center">
-            <div className="w-48 border-b border-gray-400 mb-2" />
-            {appointment.doctor && (
-              <>
-                <p className="text-sm font-semibold text-gray-900">
-                  {appointment.doctor.name}
-                </p>
-                {appointment.doctor.qualifications && (
-                  <p className="text-xs text-gray-600">
-                    {appointment.doctor.qualifications}
+            {/* Signature - Right side */}
+            <div className="text-center">
+              <div className="w-48 border-b border-gray-400 mb-2" />
+              {appointment.doctor && (
+                <>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {appointment.doctor.name}
                   </p>
-                )}
-              </>
-            )}
+                  {appointment.doctor.qualifications && (
+                    <p className="text-xs text-gray-600">
+                      {appointment.doctor.qualifications}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Footer */}
-        <div className="relative z-10 mt-8 border-t-2 border-gray-800 pt-3 text-center print-avoid-break">
-          <p className="text-xs text-gray-700 font-bold">
-            {CLINIC_CONFIG.phones.join(" | ")}
-          </p>
-          <p className="text-xs text-gray-700">
-            {CLINIC_CONFIG.email} | {CLINIC_CONFIG.website}
-          </p>
+          {/* Footer */}
+          <div className="border-t-2 border-gray-800 pt-3 text-center">
+            <p className="text-xs text-gray-700 font-bold">
+              {CLINIC_CONFIG.phones.join(" | ")}
+            </p>
+            <p className="text-xs text-gray-700">
+              {CLINIC_CONFIG.email} | {CLINIC_CONFIG.website}
+            </p>
+          </div>
         </div>
       </div>
     </div>

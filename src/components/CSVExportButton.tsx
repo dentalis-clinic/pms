@@ -2,7 +2,7 @@
 
 import { parse } from "json2csv";
 import { DateTime } from "luxon";
-import { formatISTDateTime, formatISTDate } from "@/lib/utils/date";
+import { formatISTDateTime } from "@/lib/utils/date";
 import type { AppointmentRow } from "@/types/patient";
 import { Button } from "@/components/ui";
 import { CHANNEL_LABEL, VISIT_TYPE_LABEL } from "@/lib/constants/appointment";
@@ -16,7 +16,7 @@ const CSV_FIELDS = [
   { label: "Name", value: "name" },
   { label: "Phone", value: "phone" },
   { label: "Email", value: "email" },
-  { label: "DOB", value: "dateOfBirth" },
+  { label: "Age", value: "age" },
   { label: "Booking Channel", value: "bookingChannel" },
   { label: "Visit Type", value: "visitType" },
   { label: "Priority", value: "priority" },
@@ -34,9 +34,7 @@ export default function CSVExportButton({ appointments }: CSVExportButtonProps) 
       name: a.patient.name,
       phone: a.patient.phone,
       email: a.patient.email ?? "",
-      dateOfBirth: a.patient.dateOfBirth
-        ? formatISTDate(new Date(a.patient.dateOfBirth))
-        : "",
+      age: a.patient.age != null ? String(a.patient.age) : "",
       bookingChannel: CHANNEL_LABEL[a.bookingChannel],
       visitType: VISIT_TYPE_LABEL[a.visitType],
       priority: a.priority ?? "Routine",

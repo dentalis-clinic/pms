@@ -8,7 +8,7 @@ interface ConfirmationModalProps {
   patientName: string;
   patientPhone: string;
   sex: string;
-  dateOfBirth: string;
+  age: string;
   preferredDateTime: string;
   reasonForVisit: string;
   doctorName: string;
@@ -24,7 +24,7 @@ export function ConfirmationModal({
   patientName,
   patientPhone,
   sex,
-  dateOfBirth,
+  age,
   preferredDateTime,
   reasonForVisit,
   doctorName,
@@ -41,9 +41,7 @@ export function ConfirmationModal({
         .toFormat("dd LLL yyyy, hh:mm a")
     : "—";
 
-  const formattedDOB = dateOfBirth
-    ? DateTime.fromISO(dateOfBirth).toFormat("dd LLL yyyy")
-    : "Not specified";
+  const ageLabel = age ? `${age} yrs` : "Not specified";
 
   const sexLabel = sex
     ? sex.charAt(0) + sex.slice(1).toLowerCase()
@@ -92,8 +90,8 @@ export function ConfirmationModal({
               <dd className="text-text-primary">{sexLabel}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-text-hint">DOB</dt>
-              <dd className="text-text-primary">{formattedDOB}</dd>
+              <dt className="text-text-hint">Age</dt>
+              <dd className="text-text-primary">{ageLabel}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-text-hint">Scheduled</dt>

@@ -34,7 +34,7 @@ export async function generatePatientId(
  * Find an existing patient by normalized phone + case-insensitive name,
  * or create a new one with a generated DDCJ ID.
  *
- * Optionally updates email/dateOfBirth on the existing patient if newly provided.
+ * Optionally updates email/age on the existing patient if newly provided.
  */
 export async function findOrCreatePatient(
   prisma: PrismaClient,
@@ -42,7 +42,7 @@ export async function findOrCreatePatient(
     name: string;
     phone: string;
     email?: string | null;
-    dateOfBirth?: Date | null;
+    age?: number | null;
     sex?: Sex | null;
     address?: string | null;
   }
@@ -61,8 +61,7 @@ export async function findOrCreatePatient(
     // Optionally update demographics if newly provided
     const updates: Record<string, unknown> = {};
     if (data.email && !existing.email) updates.email = data.email;
-    if (data.dateOfBirth && !existing.dateOfBirth)
-      updates.dateOfBirth = data.dateOfBirth;
+    if (data.age != null && existing.age == null) updates.age = data.age;
     if (data.sex && !existing.sex) updates.sex = data.sex;
     if (data.address && !existing.address) updates.address = data.address;
 
@@ -92,7 +91,7 @@ export async function findOrCreatePatient(
               name: data.name,
               phone: normalizedPhone,
               email: data.email || null,
-              dateOfBirth: data.dateOfBirth || null,
+              age: data.age ?? null,
               sex: data.sex || null,
               address: data.address || null,
             },

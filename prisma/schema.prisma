@@ -64,7 +64,7 @@ model Patient {
   name        String
   phone       String    // 10-digit Indian mobile, normalized
   email       String?
-  dateOfBirth DateTime? @db.Date
+  age         Int?
   sex         Sex?
   address     String?   @db.Text
   createdAt   DateTime  @default(now())
@@ -97,6 +97,8 @@ model Appointment {
   adminUserId       String?
   doctorId          String?
   notes             String?           @db.Text
+  totalAmount       Decimal?          @db.Decimal(10, 2)
+  paidAmount        Decimal?          @db.Decimal(10, 2)
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
