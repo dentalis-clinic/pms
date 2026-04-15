@@ -2,21 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { DateTime } from "luxon";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { resolveAppointmentStatuses } from "@/lib/utils/resolve-appointment-status";
 import type {
   AppointmentStatus,
-  AppointmentType,
+  VisitType,
+  BookingChannel,
 } from "@/generated/prisma/client";
+
+const PAGE_SIZE_DEFAULT = 30;
+const PAGE_SIZE_MAX = 100;
 
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAdmin();
     if (auth.error) return auth.error;
 
-    // Resolve time-based statuses before querying
-    await resolveAppointmentStatuses();
-
-    // Query params
     const { searchParams } = request.nextUrl;
     const q = searchParams.get("q")?.trim() ?? "";
     const statusFilter = searchParams.get("status") ?? "";
@@ -24,21 +23,21 @@ export async function GET(request: NextRequest) {
     const dateFilter = searchParams.get("dateFilter") ?? "all";
     const sortBy = searchParams.get("sortBy") ?? "createdAt";
     const sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
+    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
+    const pageSize = Math.min(
+      PAGE_SIZE_MAX,
+      Math.max(1, parseInt(searchParams.get("pageSize") ?? String(PAGE_SIZE_DEFAULT), 10))
+    );
 
-    // Whitelist sortable columns
     const allowedSortColumns: Record<string, Record<string, string>> = {
       createdAt: { createdAt: sortOrder },
       preferredDateTime: { preferredDateTime: sortOrder },
       status: { status: sortOrder },
-      type: { type: sortOrder },
     };
-
     const orderBy = allowedSortColumns[sortBy] ?? { createdAt: sortOrder };
 
-    // Build where clause
     const where: Record<string, unknown> = {};
 
-    // Server-side date filtering
     if (dateFilter === "today" || dateFilter === "upcoming") {
       const now = DateTime.now().setZone("Asia/Kolkata");
       const todayStart = now.startOf("day").toJSDate();
@@ -47,7 +46,6 @@ export async function GET(request: NextRequest) {
       if (dateFilter === "today") {
         where.preferredDateTime = { gte: todayStart, lt: tomorrowStart };
       } else {
-        // upcoming = tomorrow onward, non-cancelled
         where.preferredDateTime = { gte: tomorrowStart };
         where.status = { not: "CANCELLED" as AppointmentStatus };
       }
@@ -57,8 +55,13 @@ export async function GET(request: NextRequest) {
       where.status = statusFilter as AppointmentStatus;
     }
 
-    if (typeFilter) {
-      where.type = typeFilter as AppointmentType;
+    // Type filter maps to visitType or bookingChannel
+    if (typeFilter === "FOLLOW_UP") {
+      where.visitType = "FOLLOW_UP" as VisitType;
+    } else if (typeFilter === "ONLINE") {
+      where.bookingChannel = "ONLINE" as BookingChannel;
+    } else if (typeFilter === "WALK_IN") {
+      where.bookingChannel = "WALK_IN" as BookingChannel;
     }
 
     if (q) {
@@ -69,18 +72,24 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const appointments = await prisma.appointment.findMany({
-      where,
-      include: {
-        patient: true,
-        // Only fetch prescription ID — the list view just needs to know if one exists
-        prescription: { select: { id: true, prescriptionId: true } },
-        doctor: { select: { id: true, name: true, qualifications: true } },
-      },
-      orderBy,
-    });
+    const include = {
+      patient: true,
+      prescription: { select: { id: true, prescriptionId: true } },
+      doctor: { select: { id: true, name: true, qualifications: true } },
+    } as const;
 
-    // Serialize dates and Decimal fields
+    // Status transitions handled by Supabase pg_cron (scripts/setup-pg-cron.sql).
+    const [total, appointments] = await Promise.all([
+      prisma.appointment.count({ where }),
+      prisma.appointment.findMany({
+        where,
+        include,
+        orderBy,
+        take: pageSize,
+        skip: (page - 1) * pageSize,
+      }),
+    ]);
+
     const serialized = appointments.map((a) => ({
       ...a,
       createdAt: a.createdAt.toISOString(),
@@ -93,12 +102,17 @@ export async function GET(request: NextRequest) {
         createdAt: a.patient.createdAt.toISOString(),
         updatedAt: a.patient.updatedAt.toISOString(),
       },
-      // Only id + prescriptionId are selected — no date serialization needed
       prescription: a.prescription ?? null,
       doctor: a.doctor ?? null,
     }));
 
-    return NextResponse.json({ success: true, appointments: serialized });
+    return NextResponse.json({
+      success: true,
+      appointments: serialized,
+      total,
+      page,
+      pageSize,
+    });
   } catch (error) {
     console.error("GET /api/appointments/list error:", error);
     return NextResponse.json(

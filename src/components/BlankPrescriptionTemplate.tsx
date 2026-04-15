@@ -142,33 +142,33 @@ export default function BlankPrescriptionTemplate({
           </div>
         </div>
         {/* Header */}
-        <div className="relative z-10 mb-4 border-b-2 border-gray-800 pb-2 print-avoid-break">
+        <div className="relative z-10 mb-4 border-b-2 border-accent-600 pb-2 print-avoid-break">
           <div className="flex items-start justify-between mb-4">
             <div className="flex flex-col items-start">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={CLINIC_CONFIG.logo}
                 alt="Clinic logo"
-                className="h-16 w-32 rounded object-contain"
+                className="h-20 w-40 rounded object-contain"
               />
             </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-600">
+            <div className="text-right pt-2">
+              <p className="text-sm font-semibold text-brand-800 mb-2 whitespace-pre-line">
+                {CLINIC_CONFIG.timing}
+              </p>
+              <p className="text-sm text-gray-800">
                 {addr.line1}
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-800">
                 {addr.line2}
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-800">
                 {addr.city}, {addr.state} - {addr.pincode}
-              </p>
-              <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">
-                <span className="font-semibold">Timing: <span className="text-gray-900">{CLINIC_CONFIG.timing}</span></span>
               </p>
             </div>
           </div>
           <div className="w-full text-left">
-            <h1 className="text-lg font-bold text-gray-900 whitespace-nowrap">
+            <h1 className="text-lg font-bold text-accent-600 whitespace-nowrap">
               {CLINIC_CONFIG.name}
             </h1>
           </div>
@@ -176,77 +176,73 @@ export default function BlankPrescriptionTemplate({
 
         {/* Patient Info (auto-filled) */}
         <div className="relative z-10 mb-4 grid grid-cols-2 gap-4 text-sm print-avoid-break">
-          <div>
-            <p>
-              <span className="font-medium text-gray-700">Patient: </span>
-              <span className="text-gray-900">{patient.name}</span>
-            </p>
+          <div className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1">
+            <span className="font-medium text-gray-500">Patient:</span>
+            <span className="font-semibold text-gray-800">{patient.name}</span>
+
             {(patient.age != null || patient.sex) && (
-              <p>
-                <span className="font-medium text-gray-700">Age/Sex: </span>
-                <span className="text-gray-900">
+              <>
+                <span className="font-medium text-gray-500">Age/Sex:</span>
+                <span className="font-semibold text-gray-800">
                   {patient.age != null ? patient.age : "-"}
                   /{patient.sex ? patient.sex.charAt(0) : "-"}
                 </span>
-              </p>
+              </>
             )}
-            <p>
-              <span className="font-medium text-gray-700">Phone: </span>
-              <span className="text-gray-900">{patient.phone}</span>
-            </p>
+
+            <span className="font-medium text-gray-500">Phone:</span>
+            <span className="font-semibold text-gray-800">{patient.phone}</span>
+
             {patient.address && (
-              <p>
-                <span className="font-medium text-gray-700">Address: </span>
-                <span className="text-gray-900">{patient.address}</span>
-              </p>
+              <>
+                <span className="font-medium text-gray-500">Address:</span>
+                <span className="font-semibold text-gray-800">{patient.address}</span>
+              </>
             )}
           </div>
-          <div className="text-right">
-            <p>
-              <span className="font-medium text-gray-700">Patient ID: </span>
-              <span className="font-mono text-gray-900">
-                {patient.patientId}
-              </span>
-            </p>
-            <p>
-              <span className="font-medium text-gray-700">Date: </span>
-              <span className="text-gray-900">{currentDate}</span>
-            </p>
+          <div className="grid grid-cols-[max-content_max-content] justify-end content-start gap-x-3 gap-y-1">
+            <span className="font-medium text-gray-500">Patient ID:</span>
+            <span className="font-mono font-semibold text-gray-800">
+              {patient.patientId}
+            </span>
+
+            <span className="font-medium text-gray-500">Date:</span>
+            <span className="font-semibold text-gray-800">{currentDate}</span>
           </div>
         </div>
 
-        <hr className="relative z-10 mb-4 border-gray-300" />
+        <hr className="relative z-10 mb-8 border-gray-200" />
 
         {/* Chief Complain */}
         <div className="relative z-10 mb-4 print-avoid-break">
-          <h2 className="mb-1 text-sm font-semibold uppercase text-gray-700">
+          <h2 className="mb-1 text-sm font-semibold uppercase text-gray-500">
             Chief Complain
           </h2>
-          <div className="min-h-[40px]"></div>
+          <div className="min-h-[60px]"></div>
         </div>
 
         {/* Medical History */}
         <div className="relative z-10 mb-4 print-avoid-break">
-          <h2 className="mb-1 text-sm font-semibold uppercase text-gray-700">
+          <h2 className="mb-1 text-sm font-semibold uppercase text-gray-500">
             Medical History
           </h2>
-          <div className="min-h-[40px]"></div>
+          <div className="min-h-[60px]"></div>
         </div>
 
         {/* Examinations */}
         <div className="relative z-10 mb-4 print-avoid-break">
-          <h2 className="mb-1 text-sm font-semibold uppercase text-gray-700">
+          <h2 className="mb-1 text-sm font-semibold uppercase text-gray-500">
             Examinations
           </h2>
-          <div className="min-h-[50px]"></div>
+          <div className="min-h-[60px]"></div>
         </div>
 
         {/* Investigations */}
         <div className="relative z-10 mb-4 print-avoid-break">
-          <h2 className="mb-1 text-sm font-semibold uppercase text-gray-700">
+          <h2 className="mb-1 text-sm font-semibold uppercase text-gray-500">
             Investigations
           </h2>
-          <div className="min-h-[40px]"></div>
+          <div className="min-h-[60px]"></div>
         </div>
 
         {/* Rx (Medications) */}
@@ -286,8 +282,8 @@ export default function BlankPrescriptionTemplate({
           </div>
 
           {/* Footer */}
-          <div className="border-t-2 border-gray-800 pt-3 text-center">
-            <p className="text-xs text-gray-700 font-bold">
+          <div className="border-t-2 border-accent-600 pt-3 text-center">
+            <p className="text-xs pb-2 text-brand-800 font-bold">
               {CLINIC_CONFIG.phones.join(" | ")}
             </p>
             <p className="text-xs text-gray-700">

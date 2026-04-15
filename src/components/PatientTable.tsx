@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { formatISTDateTime } from "@/lib/utils/date";
 import type { AppointmentRow, PatientRow } from "@/types/patient";
-import { Input, Badge } from "@/components/ui";
+import { Badge } from "@/components/ui";
 import { Button } from "@/components/ui/Button";
 import { STATUS_BADGE, VISIT_TYPE_LABEL, PRIORITY_BADGE } from "@/lib/constants/appointment";
 import { PatientDetailsModal } from "@/components/admin/PatientDetailsModal";
@@ -15,7 +15,6 @@ interface PatientTableProps {
   onRefresh: () => void;
   highlightId?: string;
   onConfirmAppointment: (appointment: AppointmentRow) => void;
-  search?: string;
 }
 
 type SortKey = "name" | "preferredDateTime" | "status";
@@ -222,10 +221,7 @@ export default function PatientTable({
   onRefresh,
   highlightId,
   onConfirmAppointment,
-  search: externalSearch,
 }: PatientTableProps) {
-  const [internalSearch, setInternalSearch] = useState("");
-  const search = externalSearch ?? internalSearch;
   const [sortKey, setSortKey] = useState<SortKey>("preferredDateTime");
   const [sortAsc, setSortAsc] = useState(false);
 
@@ -265,19 +261,8 @@ export default function PatientTable({
     setConfirmingAction(null);
   }, [appointments]);
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return appointments;
-    const q = search.toLowerCase();
-    return appointments.filter(
-      (a) =>
-        a.patient.name.toLowerCase().includes(q) ||
-        a.patient.phone.includes(q) ||
-        a.patient.patientId.toLowerCase().includes(q)
-    );
-  }, [appointments, search]);
-
   const sorted = useMemo(() => {
-    const arr = [...filtered];
+    const arr = [...appointments];
     arr.sort((a, b) => {
       let cmp = 0;
       switch (sortKey) {
@@ -294,7 +279,7 @@ export default function PatientTable({
       return sortAsc ? cmp : -cmp;
     });
     return arr;
-  }, [filtered, sortKey, sortAsc]);
+  }, [appointments, sortKey, sortAsc]);
 
   const someSelected = selectedIds.size > 0;
   const allSelected = sorted.length > 0 && sorted.every((a) => selectedIds.has(a.id));
@@ -398,15 +383,6 @@ export default function PatientTable({
 
   return (
     <div className="space-y-3">
-      {externalSearch === undefined && (
-        <Input
-          type="text"
-          value={internalSearch}
-          onChange={(e) => setInternalSearch(e.target.value)}
-          placeholder="Search by name, phone, or patient ID..."
-          className="max-w-sm"
-        />
-      )}
 
       {/* Bulk Action Bar */}
       {someSelected && (
@@ -676,10 +652,6 @@ export default function PatientTable({
         </table>
       </div>
 
-      <p className="text-xs text-text-tertiary">
-        {filtered.length} appointment{filtered.length !== 1 ? "s" : ""}
-        {search && ` matching "${search}"`}
-      </p>
 
       {/* Patient Details Modal */}
       {selectedPatient && (

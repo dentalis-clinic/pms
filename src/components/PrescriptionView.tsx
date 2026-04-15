@@ -66,27 +66,27 @@ export default function PrescriptionView({ prescription }: PrescriptionViewProps
         </div>
 
         {/* Header */}
-        <div className="relative z-10 border-b-2 border-gray-800 pb-4 mb-6">
+        <div className="relative z-10 border-b-2 border-accent-700 pb-4 mb-6">
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={CLINIC_CONFIG.logo}
                 alt="Clinic logo"
-                className="h-14 w-14 rounded object-contain"
+                className="h-20 w-20 rounded object-contain"
               />
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">
+              <div className="pt-2">
+                <h1 className="text-xl font-bold text-accent-700">
                   {CLINIC_CONFIG.name}
                 </h1>
+                <p className="text-sm font-semibold text-accent-700 mb-2 whitespace-pre-line">
+                  {CLINIC_CONFIG.timing}
+                </p>
                 <p className="text-sm text-gray-600">
                   {addr.line1}, {addr.line2}
                 </p>
                 <p className="text-sm text-gray-600">
                   {addr.city}, {addr.state} - {addr.pincode}
-                </p>
-                <p className="text-sm text-gray-600 whitespace-pre-line">
-                  Timing: {CLINIC_CONFIG.timing}
                 </p>
               </div>
             </div>
@@ -106,53 +106,49 @@ export default function PrescriptionView({ prescription }: PrescriptionViewProps
 
         {/* Patient Info + Prescription ID */}
         <div className="relative z-10 mb-6 grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <p>
-              <span className="font-medium text-gray-700">Patient: </span>
-              <span className="text-gray-900">{patient.name}</span>
-            </p>
+          <div className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1">
+            <span className="font-medium text-gray-700">Patient:</span>
+            <span className="font-semibold text-gray-900">{patient.name}</span>
+
             {patient.age != null && (
-              <p>
-                <span className="font-medium text-gray-700">Age: </span>
-                <span className="text-gray-900">{patient.age} yrs</span>
-              </p>
+              <>
+                <span className="font-medium text-gray-700">Age:</span>
+                <span className="font-semibold text-gray-900">{patient.age} yrs</span>
+              </>
             )}
-            <p>
-              <span className="font-medium text-gray-700">Phone: </span>
-              <span className="text-gray-900">{patient.phone}</span>
-            </p>
+
+            <span className="font-medium text-gray-700">Phone:</span>
+            <span className="font-semibold text-gray-900">{patient.phone}</span>
+
             {patient.address && (
-              <p>
-                <span className="font-medium text-gray-700">Address: </span>
-                <span className="text-gray-900">{patient.address}</span>
-              </p>
+              <>
+                <span className="font-medium text-gray-700">Address:</span>
+                <span className="font-semibold text-gray-900">{patient.address}</span>
+              </>
             )}
+
             {patient.email && (
-              <p>
-                <span className="font-medium text-gray-700">Email: </span>
-                <span className="text-gray-900">{patient.email}</span>
-              </p>
+              <>
+                <span className="font-medium text-gray-700">Email:</span>
+                <span className="font-semibold text-gray-900">{patient.email}</span>
+              </>
             )}
           </div>
-          <div className="text-right">
-            <p>
-              <span className="font-medium text-gray-700">Rx ID: </span>
-              <span className="font-mono text-gray-900">
-                {prescription.prescriptionId}
-              </span>
-            </p>
-            <p>
-              <span className="font-medium text-gray-700">Patient ID: </span>
-              <span className="font-mono text-gray-900">
-                {patient.patientId}
-              </span>
-            </p>
-            <p>
-              <span className="font-medium text-gray-700">Date: </span>
-              <span className="text-gray-900">
-                {formatISTDate(new Date(prescription.createdAt))}
-              </span>
-            </p>
+          <div className="grid grid-cols-[max-content_max-content] justify-end content-start gap-x-3 gap-y-1">
+            <span className="font-medium text-gray-700">Rx ID:</span>
+            <span className="font-mono font-semibold text-gray-900">
+              {prescription.prescriptionId}
+            </span>
+
+            <span className="font-medium text-gray-700">Patient ID:</span>
+            <span className="font-mono font-semibold text-gray-900">
+              {patient.patientId}
+            </span>
+
+            <span className="font-medium text-gray-700">Date:</span>
+            <span className="font-semibold text-gray-900">
+              {formatISTDate(new Date(prescription.createdAt))}
+            </span>
           </div>
         </div>
 
@@ -217,8 +213,8 @@ export default function PrescriptionView({ prescription }: PrescriptionViewProps
         </div>
 
         {/* Footer */}
-        <div className="relative z-10 mt-8 border-t-2 border-gray-800 pt-3 text-center">
-          <p className="text-xs text-gray-700 font-bold">
+        <div className="relative z-10 mt-8 border-t-2 border-accent-700 pt-3 text-center">
+          <p className="text-xs text-accent-700 font-bold">
             {CLINIC_CONFIG.phones.join(" | ")}
           </p>
           <p className="text-xs text-gray-700">

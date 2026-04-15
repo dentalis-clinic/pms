@@ -23,9 +23,13 @@ type RequireAdminResult = RequireAdminSuccess | RequireAdminError;
  */
 export async function requireAdmin(): Promise<RequireAdminResult> {
   const supabase = await createClient();
+  // Use getSession() (local cookie decode) instead of getUser() (Supabase network call).
+  // Safe here because middleware.ts already calls getUser() on every request and
+  // writes a refreshed JWT cookie before this route handler runs.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
 
   if (!user) {
     return {

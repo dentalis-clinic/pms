@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { DateTime } from "luxon";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -22,7 +22,10 @@ export interface PatientRow {
 
 interface PatientsViewProps {
   initialPatients: PatientRow[];
+  initialTotal: number;
 }
+
+const PAGE_SIZE = 30;
 
 const SEX_LABELS: Record<string, string> = {
   MALE: "Male",
@@ -220,8 +223,10 @@ function DeleteConfirmModal({ count, deleting, error, onConfirm, onCancel }: Del
 
 // ----- Main View -----
 
-export default function PatientsView({ initialPatients }: PatientsViewProps) {
+export default function PatientsView({ initialPatients, initialTotal }: PatientsViewProps) {
   const [patients, setPatients] = useState<PatientRow[]>(initialPatients);
+  const [total, setTotal] = useState(initialTotal);
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [editingPatient, setEditingPatient] = useState<PatientRow | null>(null);
   const [loading, setLoading] = useState(false);
@@ -235,50 +240,50 @@ export default function PatientsView({ initialPatients }: PatientsViewProps) {
   const selectAllRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleSearchChange = useCallback((value: string) => {
-    setSearch(value);
-    // Clear selection on search change
-    setSelectedIds(new Set());
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      if (!value.trim()) return;
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/patients?search=${encodeURIComponent(value.trim())}&limit=100`);
-        const data = await res.json();
-        if (data.success) setPatients(data.patients);
-      } catch {
-        // Fall back to client filter
-      } finally {
-        setLoading(false);
+  const fetchPage = useCallback(async (q: string, p: number) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (q.trim()) params.set("search", q.trim());
+      params.set("page", String(p));
+      params.set("limit", String(PAGE_SIZE));
+      const res = await fetch(`/api/patients?${params}`);
+      const data = await res.json();
+      if (data.success) {
+        setPatients(data.patients);
+        setTotal(data.total);
       }
-    }, 400);
+    } catch (err) {
+      console.error("Failed to fetch patients:", err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return patients;
-    return patients.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.phone.includes(q) ||
-        p.patientId.toLowerCase().includes(q) ||
-        (p.email ?? "").toLowerCase().includes(q)
-    );
-  }, [patients, search]);
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    setSelectedIds(new Set());
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setPage(1);
+      fetchPage(value, 1);
+    }, 400);
+  }, [fetchPage]);
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    fetchPage(search, newPage);
+  };
 
   // Keep select-all checkbox indeterminate state in sync
   useEffect(() => {
     if (!selectAllRef.current) return;
-    const count = filtered.filter((p) => selectedIds.has(p.id)).length;
-    selectAllRef.current.checked = count > 0 && count === filtered.length;
-    selectAllRef.current.indeterminate = count > 0 && count < filtered.length;
-  }, [selectedIds, filtered]);
+    const count = patients.filter((p) => selectedIds.has(p.id)).length;
+    selectAllRef.current.checked = count > 0 && count === patients.length;
+    selectAllRef.current.indeterminate = count > 0 && count < patients.length;
+  }, [selectedIds, patients]);
 
-  const selectedCount = useMemo(
-    () => filtered.filter((p) => selectedIds.has(p.id)).length,
-    [selectedIds, filtered]
-  );
+  const selectedCount = patients.filter((p) => selectedIds.has(p.id)).length;
 
   function toggleRow(id: string) {
     setSelectedIds((prev) => {
@@ -289,7 +294,7 @@ export default function PatientsView({ initialPatients }: PatientsViewProps) {
   }
 
   function toggleAll() {
-    const visibleIds = filtered.map((p) => p.id);
+    const visibleIds = patients.map((p) => p.id);
     const allSelected = visibleIds.every((id) => selectedIds.has(id));
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -321,9 +326,9 @@ export default function PatientsView({ initialPatients }: PatientsViewProps) {
         setDeleteError(data.error ?? "Delete failed");
         return;
       }
-      setPatients((prev) => prev.filter((p) => !selectedIds.has(p.id)));
       setSelectedIds(new Set());
       setShowDeleteConfirm(false);
+      fetchPage(search, page);
     } catch {
       setDeleteError("An unexpected error occurred.");
     } finally {
@@ -337,10 +342,14 @@ export default function PatientsView({ initialPatients }: PatientsViewProps) {
     );
   }
 
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const start = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const end = Math.min(page * PAGE_SIZE, total);
+
   return (
-    <div>
+    <div className="space-y-4">
       {/* Toolbar */}
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <div className="relative max-w-sm flex-1">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -362,13 +371,13 @@ export default function PatientsView({ initialPatients }: PatientsViewProps) {
           />
         </div>
         <span className="shrink-0 text-sm text-text-hint">
-          {loading ? "Searching…" : `${filtered.length} patient${filtered.length !== 1 ? "s" : ""}`}
+          <span className="font-medium text-text-secondary">{total}</span> total
         </span>
       </div>
 
       {/* Selection badge */}
       {selectedCount > 0 && (
-        <div className="mb-3 flex items-center gap-3 rounded-lg border border-border-primary bg-surface-primary px-4 py-2.5 shadow-sm">
+        <div className="flex items-center gap-3 rounded-lg border border-border-primary bg-surface-primary px-4 py-2.5 shadow-sm">
           <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-surface-brand-subtle px-2 text-xs font-semibold text-text-brand">
             {selectedCount}
           </span>
@@ -402,7 +411,9 @@ export default function PatientsView({ initialPatients }: PatientsViewProps) {
       )}
 
       {/* Table */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="py-12 text-center text-sm text-text-hint">Loading patients...</div>
+      ) : patients.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-border-primary bg-surface-primary py-16 text-center">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -469,7 +480,7 @@ export default function PatientsView({ initialPatients }: PatientsViewProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-primary">
-                {filtered.map((p) => {
+                {patients.map((p) => {
                   const isSelected = selectedIds.has(p.id);
                   return (
                     <tr
@@ -529,6 +540,64 @@ export default function PatientsView({ initialPatients }: PatientsViewProps) {
           </div>
         </div>
       )}
+
+      {/* Pagination footer */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-text-tertiary">
+          {total === 0
+            ? "No patients"
+            : `Showing ${start}–${end} of ${total} patient${total !== 1 ? "s" : ""}`}
+          {search.trim() && ` matching "${search.trim()}"`}
+        </p>
+
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page === 1}
+              className="rounded border border-border-primary px-2 py-1 text-xs text-text-secondary hover:bg-surface-secondary disabled:opacity-40"
+            >
+              Prev
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+              .reduce<(number | "…")[]>((acc, p, idx, arr) => {
+                if (idx > 0 && (arr[idx - 1] as number) < p - 1) acc.push("…");
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, idx) =>
+                p === "…" ? (
+                  <span key={`ellipsis-${idx}`} className="px-1 text-xs text-text-hint">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => handlePageChange(p as number)}
+                    className={`rounded border px-2.5 py-1 text-xs ${
+                      page === p
+                        ? "border-interactive-primary bg-interactive-primary text-text-inverse"
+                        : "border-border-primary text-text-secondary hover:bg-surface-secondary"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+            <button
+              type="button"
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page === totalPages}
+              className="rounded border border-border-primary px-2 py-1 text-xs text-text-secondary hover:bg-surface-secondary disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </div>
 
       {editingPatient && (
         <EditModal

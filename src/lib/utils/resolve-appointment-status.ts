@@ -6,13 +6,24 @@
  *
  * Call at the start of any API that reads appointment data.
  * Idempotent — returns count: 0 instantly when nothing needs updating.
+ *
+ * Rate-limited: skips execution if last run was within RESOLVE_INTERVAL_MS.
+ * Module-level state persists across requests on warm serverless instances.
  */
 
 import { DateTime } from "luxon";
 import { prisma } from "@/lib/prisma";
 import { BUSINESS_HOURS_CONFIG } from "@/lib/config/business-hours";
 
+const RESOLVE_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
+let lastResolvedAt = 0;
+
 export async function resolveAppointmentStatuses() {
+  const ts = Date.now();
+  if (ts - lastResolvedAt < RESOLVE_INTERVAL_MS) {
+    return { overdue: 0, completed: 0 };
+  }
+  lastResolvedAt = ts;
   const now = DateTime.now().setZone(BUSINESS_HOURS_CONFIG.timezone);
   const bufferCutoff = now
     .minus({ minutes: BUSINESS_HOURS_CONFIG.slotDuration })

@@ -1,11 +1,13 @@
 import { DateTime } from "luxon";
 import { prisma } from "@/lib/prisma";
-import { resolveAppointmentStatuses } from "@/lib/utils/resolve-appointment-status";
 import type { AppointmentStatus } from "@/generated/prisma/client";
 
 /**
  * Server-side data fetchers for the dashboard.
  * Called directly from Server Components — no HTTP overhead, no re-auth.
+ *
+ * Status transitions (PENDING→OVERDUE, CONFIRMED→COMPLETED) are handled by
+ * Supabase pg_cron (scripts/setup-pg-cron.sql) — not on the read path.
  */
 
 interface StatsRow {
@@ -31,7 +33,6 @@ function getTodayBounds() {
 }
 
 export async function fetchDashboardStats(): Promise<DashboardStatsData> {
-  await resolveAppointmentStatuses();
   const { todayStart, tomorrowStart } = getTodayBounds();
 
   const [stats] = await prisma.$queryRaw<StatsRow[]>`
@@ -63,7 +64,6 @@ export async function fetchDashboardStats(): Promise<DashboardStatsData> {
 type DateFilter = "today" | "upcoming" | "all";
 
 export async function fetchAppointments(dateFilter: DateFilter = "today") {
-  await resolveAppointmentStatuses();
   const where: Record<string, unknown> = {};
 
   if (dateFilter === "today" || dateFilter === "upcoming") {
@@ -82,17 +82,18 @@ export async function fetchAppointments(dateFilter: DateFilter = "today") {
       ? { preferredDateTime: "asc" as const }
       : { createdAt: "desc" as const };
 
-  const appointments = await prisma.appointment.findMany({
-    where,
-    include: {
-      patient: true,
-      prescription: { select: { id: true, prescriptionId: true } },
-    },
-    orderBy,
-  });
+  const include = {
+    patient: true,
+    prescription: { select: { id: true, prescriptionId: true } },
+    doctor: { select: { id: true, name: true, qualifications: true } },
+  } as const;
 
-  // Serialize dates for client consumption
-  return appointments.map((a) => ({
+  const [total, appointments] = await Promise.all([
+    prisma.appointment.count({ where }),
+    prisma.appointment.findMany({ where, include, orderBy, take: 30, skip: 0 }),
+  ]);
+
+  const serialized = appointments.map((a) => ({
     ...a,
     createdAt: a.createdAt.toISOString(),
     updatedAt: a.updatedAt.toISOString(),
@@ -105,5 +106,8 @@ export async function fetchAppointments(dateFilter: DateFilter = "today") {
       updatedAt: a.patient.updatedAt.toISOString(),
     },
     prescription: a.prescription ?? null,
+    doctor: a.doctor ?? null,
   }));
+
+  return { appointments: serialized, total };
 }
