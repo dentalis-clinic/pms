@@ -5,7 +5,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { confirmAppointmentSchema } from "@/lib/validations/appointment";
 import { normalizePhoneNumber } from "@/lib/utils/phone";
-import { findOrCreatePatient } from "@/lib/utils/patient-id";
+import { findOrCreatePatient, generateAppointmentId } from "@/lib/utils/patient-id";
 import { checkSlotConflict, SlotConflictError } from "@/lib/utils/slot-conflict";
 import { validateOrigin } from "@/lib/utils/csrf";
 import type { Sex } from "@/generated/prisma/client";
@@ -122,7 +122,6 @@ export async function POST(request: NextRequest) {
               adminUserId: admin.id,
               doctorId: data.doctorId,
               totalAmount: data.totalAmount != null ? data.totalAmount : undefined,
-              paidAmount: data.paidAmount != null ? data.paidAmount : undefined,
             },
           });
         },
@@ -177,8 +176,10 @@ export async function POST(request: NextRequest) {
             await checkSlotConflict(tx, data.preferredDateTime);
           }
 
+          const appointmentId = await generateAppointmentId(tx);
           return tx.appointment.create({
             data: {
+              appointmentId,
               patientId: patient.id,
               type: appointmentType,
               bookingChannel: data.isPhoneBooking ? "PHONE" : "WALK_IN",
@@ -190,7 +191,6 @@ export async function POST(request: NextRequest) {
               adminUserId: admin.id,
               doctorId: data.doctorId,
               totalAmount: data.totalAmount != null ? data.totalAmount : null,
-              paidAmount: data.paidAmount != null ? data.paidAmount : null,
             },
           });
         },
@@ -225,8 +225,10 @@ export async function POST(request: NextRequest) {
           await checkSlotConflict(tx, data.preferredDateTime);
         }
 
+        const appointmentId = await generateAppointmentId(tx);
         return tx.appointment.create({
           data: {
+            appointmentId,
             patientId: patient.id,
             type: "WALK_IN",
             bookingChannel: data.isPhoneBooking ? "PHONE" : "WALK_IN",
@@ -238,7 +240,6 @@ export async function POST(request: NextRequest) {
             adminUserId: admin.id,
             doctorId: data.doctorId,
             totalAmount: data.totalAmount != null ? data.totalAmount : null,
-            paidAmount: data.paidAmount != null ? data.paidAmount : null,
           },
         });
       },

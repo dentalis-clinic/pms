@@ -1,5 +1,6 @@
 import { PrismaClient, Prisma, type AppointmentStatus } from "@/generated/prisma/client";
 import type { TxClient } from "./patient-id";
+import { generateAppointmentId } from "./patient-id";
 
 /** Statuses that occupy a slot (block new bookings). */
 const BLOCKING_STATUSES: AppointmentStatus[] = [
@@ -52,7 +53,7 @@ export async function checkSlotConflict(
 export async function createAppointmentAtomic(
   prisma: PrismaClient,
   opts: {
-    data: Prisma.AppointmentUncheckedCreateInput;
+    data: Omit<Prisma.AppointmentUncheckedCreateInput, "appointmentId">;
     allowOverride?: boolean;
   }
 ) {
@@ -63,7 +64,8 @@ export async function createAppointmentAtomic(
       if (!allowOverride) {
         await checkSlotConflict(tx, data.preferredDateTime as Date);
       }
-      return tx.appointment.create({ data });
+      const appointmentId = await generateAppointmentId(tx);
+      return tx.appointment.create({ data: { ...data, appointmentId } });
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
   );

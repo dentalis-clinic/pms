@@ -6,25 +6,51 @@ import { CHANNEL_LABEL, VISIT_TYPE_LABEL } from "@/lib/constants/appointment";
 import { formatISTDateTime } from "@/lib/utils/date";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
+import { PaymentRow } from "@/components/admin/PaymentRow";
+import type { PaymentEntry } from "@/components/admin/PaymentRow";
 
 interface AppointmentDetailsModalProps {
   appointment: AppointmentRow;
   onClose: () => void;
-  onConfirmAppointment: (appointment: AppointmentRow) => void;
+  onEdit: (appointment: AppointmentRow) => void;
   onRefresh: () => void;
 }
 
 export function AppointmentDetailsModal({
   appointment,
   onClose,
-  onConfirmAppointment,
+  onEdit,
   onRefresh,
 }: AppointmentDetailsModalProps) {
   const [cancelling, setCancelling] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelError, setCancelError] = useState("");
-  const [completing, setCompleting] = useState(false);
-  const [completeError, setCompleteError] = useState("");
+
+  // Billing state
+  const [payments, setPayments] = useState<PaymentEntry[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+
+  const showBilling = appointment.status !== "CANCELLED";
+
+  const canCancel =
+    appointment.status === "PENDING" ||
+    appointment.status === "OVERDUE" ||
+    appointment.status === "CONFIRMED";
+  const canDelete =
+    appointment.status === "COMPLETED" || appointment.status === "CANCELLED";
+
+  const [paymentRefreshKey, setPaymentRefreshKey] = useState(0);
+
+  // Fetch payment history
+  useEffect(() => {
+    if (!showBilling) return;
+    setPaymentsLoading(true);
+    fetch(`/api/payments?appointmentId=${appointment.id}`)
+      .then((r) => r.json())
+      .then((data) => { if (data.success) setPayments(data.payments); })
+      .catch(() => {})
+      .finally(() => setPaymentsLoading(false));
+  }, [appointment.id, showBilling, paymentRefreshKey]);
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -43,12 +69,8 @@ export function AppointmentDetailsModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "CANCELLED" }),
       });
-      if (res.ok) {
-        onClose();
-        onRefresh();
-      } else {
-        setCancelError("Failed to cancel. Please try again.");
-      }
+      if (res.ok) { onClose(); onRefresh(); }
+      else setCancelError("Failed to cancel. Please try again.");
     } catch {
       setCancelError("Failed to cancel. Please try again.");
     } finally {
@@ -56,49 +78,30 @@ export function AppointmentDetailsModal({
     }
   }, [appointment.id, onClose, onRefresh]);
 
-  const handleMarkComplete = useCallback(async () => {
-    setCompleting(true);
-    setCompleteError("");
+  const handleDelete = useCallback(async () => {
     try {
-      const res = await fetch(`/api/appointments/${appointment.id}`, {
-        method: "PATCH",
+      const res = await fetch("/api/appointments/bulk-delete", {
+        method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "COMPLETED" }),
+        body: JSON.stringify({ ids: [appointment.id] }),
       });
-      if (res.ok) {
-        onClose();
-        onRefresh();
-      } else {
-        setCompleteError("Failed to mark complete. Please try again.");
-      }
+      if (res.ok) { onClose(); onRefresh(); }
     } catch {
-      setCompleteError("Failed to mark complete. Please try again.");
-    } finally {
-      setCompleting(false);
+      // silently fail
     }
   }, [appointment.id, onClose, onRefresh]);
 
-  const canEdit =
-    appointment.status === "PENDING" || appointment.status === "OVERDUE";
-  const canCancel =
-    appointment.status === "PENDING" ||
-    appointment.status === "OVERDUE" ||
-    appointment.status === "CONFIRMED";
-  const canComplete = appointment.status === "CONFIRMED";
-
-  const paymentDisplay = (() => {
-    if (appointment.totalAmount == null && appointment.paidAmount == null) return null;
-    const total = appointment.totalAmount != null ? `₹${appointment.totalAmount}` : "—";
-    const paid = appointment.paidAmount != null ? `₹${appointment.paidAmount}` : "—";
-    return { total, paid };
-  })();
+  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+  const amountDue = appointment.totalAmount ?? null;
+  const balance = amountDue != null ? amountDue - totalPaid : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-surface-overlay/30" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-lg border border-border-primary bg-surface-primary shadow-lg">
+      <div className="relative z-10 w-full max-w-md rounded-lg border border-border-primary bg-surface-primary shadow-lg max-h-[90vh] flex flex-col">
+
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border-primary px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border-primary px-6 py-4 shrink-0">
           <h3 className="text-base font-semibold text-text-primary">Appointment Details</h3>
           <button
             type="button"
@@ -113,8 +116,9 @@ export function AppointmentDetailsModal({
           </button>
         </div>
 
-        {/* Body */}
-        <div className="px-6 py-4">
+        {/* Body — scrollable */}
+        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+          {/* Appointment info */}
           <dl className="space-y-3 text-sm">
             <div className="flex justify-between">
               <dt className="text-text-hint">Patient</dt>
@@ -126,9 +130,7 @@ export function AppointmentDetailsModal({
             </div>
             <div className="flex justify-between">
               <dt className="text-text-hint">Created on</dt>
-              <dd className="text-text-primary">
-                {formatISTDateTime(new Date(appointment.createdAt))}
-              </dd>
+              <dd className="text-text-primary">{formatISTDateTime(new Date(appointment.createdAt))}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-text-hint">Booking method</dt>
@@ -144,110 +146,137 @@ export function AppointmentDetailsModal({
             </div>
             <div className="flex justify-between">
               <dt className="text-text-hint">Scheduled for</dt>
-              <dd className="text-text-primary">
-                {formatISTDateTime(new Date(appointment.preferredDateTime))}
-              </dd>
+              <dd className="text-text-primary">{formatISTDateTime(new Date(appointment.preferredDateTime))}</dd>
             </div>
             <div className="flex gap-4 justify-between">
               <dt className="shrink-0 text-text-hint">Chief complaint</dt>
-              <dd className="text-right text-text-primary">
-                {appointment.reasonForVisit ?? "—"}
-              </dd>
+              <dd className="text-right text-text-primary">{appointment.reasonForVisit ?? "—"}</dd>
             </div>
-            {paymentDisplay ? (
-              <>
-                <div className="flex justify-between">
-                  <dt className="text-text-hint">Total amount</dt>
-                  <dd className="text-text-primary">{paymentDisplay.total}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-text-hint">Paid</dt>
-                  <dd className="text-text-primary">{paymentDisplay.paid}</dd>
-                </div>
-              </>
-            ) : (
-              <div className="flex justify-between">
-                <dt className="text-text-hint">Payment</dt>
-                <dd className="text-text-tertiary">—</dd>
-              </div>
-            )}
           </dl>
+
+          {/* Billing — read-only */}
+          {showBilling && (
+            <div className="border-t border-border-primary pt-4 space-y-3">
+              <h4 className="text-sm font-semibold text-text-primary">Billing</h4>
+
+              {amountDue == null ? (
+                <p className="text-xs text-text-hint">No bill amount set.</p>
+              ) : (
+                <>
+                  <div className="rounded-md border border-border-primary bg-surface-secondary px-3 py-2 text-xs space-y-1.5">
+                    <div className="flex justify-between text-text-secondary">
+                      <span>Bill amount</span>
+                      <span className="font-medium">₹{amountDue.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-text-secondary">
+                      <span>Total paid</span>
+                      <span>₹{totalPaid.toFixed(2)}</span>
+                    </div>
+                    <div className={`flex justify-between border-t border-border-primary pt-1.5 font-semibold text-sm ${
+                      appointment.isWaived
+                        ? "text-text-secondary"
+                        : balance === 0
+                        ? "text-text-success"
+                        : (balance ?? 0) > 0
+                        ? "text-text-error"
+                        : "text-text-primary"
+                    }`}>
+                      <span>
+                        {appointment.isWaived ? "Waived" : balance === 0 ? "Paid in full" : "Outstanding"}
+                      </span>
+                      <span>
+                        {appointment.isWaived ? "—" : balance === 0 ? "✓" : `₹${balance!.toFixed(2)}`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Payment history */}
+                  {paymentsLoading ? (
+                    <p className="text-xs text-text-hint">Loading payments…</p>
+                  ) : payments.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {payments.map((p) => (
+                        <PaymentRow
+                          key={p.id}
+                          payment={p}
+                          onRefresh={() => setPaymentRefreshKey((k) => k + 1)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-text-hint">No payments recorded yet.</p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Actions */}
-        {(canEdit || canCancel || canComplete) && (
-          <div className="space-y-2 border-t border-border-primary px-6 py-4">
-            {completeError && <Alert variant="error">{completeError}</Alert>}
-            {cancelError && <Alert variant="error">{cancelError}</Alert>}
+        {/* Footer */}
+        <div className="border-t border-border-primary px-6 py-4 shrink-0 space-y-2">
+          {cancelError && <Alert variant="error">{cancelError}</Alert>}
 
-            {!confirmingCancel ? (
-              <div className="flex flex-wrap gap-2">
-                {canEdit && (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => {
-                      onClose();
-                      onConfirmAppointment(appointment);
-                    }}
-                  >
-                    Edit Appointment
-                  </Button>
-                )}
-                {canComplete && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    loading={completing}
-                    loadingText="Completing..."
-                    onClick={handleMarkComplete}
-                  >
-                    Mark Complete
-                  </Button>
-                )}
-                {canCancel && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setConfirmingCancel(true)}
-                    className="text-text-error hover:bg-surface-error/50"
-                  >
-                    Cancel Appointment
-                  </Button>
-                )}
+          {!confirmingCancel ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Edit details — always available */}
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => { onClose(); onEdit(appointment); }}
+              >
+                Edit details
+              </Button>
+
+              {/* Cancel */}
+              {canCancel && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setConfirmingCancel(true)}
+                  className="text-text-error hover:bg-surface-error/50"
+                >
+                  Cancel appointment
+                </Button>
+              )}
+
+              {/* Delete */}
+              {canDelete && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDelete}
+                  className="text-text-error hover:bg-surface-error/50"
+                >
+                  Delete
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-text-secondary">Cancel this appointment? This cannot be undone.</p>
+              <div className="flex gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  loading={cancelling}
+                  loadingText="Cancelling..."
+                  onClick={handleCancel}
+                  className="bg-interactive-error hover:bg-interactive-error-hover"
+                >
+                  Yes, Cancel
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={cancelling}
+                  onClick={() => { setConfirmingCancel(false); setCancelError(""); }}
+                >
+                  No, Go Back
+                </Button>
               </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-sm text-text-secondary">
-                  Cancel this appointment? This cannot be undone.
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    loading={cancelling}
-                    loadingText="Cancelling..."
-                    onClick={handleCancel}
-                    className="bg-interactive-error hover:bg-interactive-error-hover"
-                  >
-                    Yes, Cancel
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={cancelling}
-                    onClick={() => {
-                      setConfirmingCancel(false);
-                      setCancelError("");
-                    }}
-                  >
-                    No, Go Back
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

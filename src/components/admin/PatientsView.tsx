@@ -18,6 +18,7 @@ export interface PatientRow {
   createdAt: string;
   totalVisits: number;
   lastVisit: string | null;
+  outstanding: number; // total unpaid balance across all appointments
 }
 
 interface PatientsViewProps {
@@ -474,6 +475,9 @@ export default function PatientsView({ initialPatients, initialTotal }: Patients
                     Last Visit
                   </th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium text-text-hint">
+                    Outstanding
+                  </th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium text-text-hint">
                     Registered
                   </th>
                   <th className="px-4 py-3" />
@@ -519,6 +523,15 @@ export default function PatientsView({ initialPatients, initialTotal }: Patients
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-text-secondary">
                         {formatDate(p.lastVisit)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        {p.outstanding > 0 ? (
+                          <span className="font-medium text-text-error">
+                            ₹{p.outstanding.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        ) : (
+                          <span className="text-text-tertiary">—</span>
+                        )}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-text-hint">
                         {formatDate(p.createdAt)}

@@ -162,7 +162,6 @@ export const patchAppointmentSchema = z.object({
   priority: priorityEnum.optional(), // ROUTINE, URGENT, EMERGENCY
   doctorId: z.string().uuid("Invalid doctor ID").optional().nullable(),
   totalAmount: z.number().min(0, "Total amount must be 0 or greater").optional().nullable(),
-  paidAmount: z.number().min(0, "Paid amount must be 0 or greater").optional().nullable(),
   reasonForVisit: z
     .string()
     .trim()
@@ -175,22 +174,12 @@ export const patchAppointmentSchema = z.object({
     .max(2000, "Notes must be 2000 characters or less")
     .optional()
     .or(z.literal("")),
+  // Admin edits are not subject to business-hours or slot-alignment rules —
+  // those constraints only apply to public/walk-in bookings.
   preferredDateTime: z
     .string()
     .transform((val) => new Date(val))
     .refine((date) => !isNaN(date.getTime()), "Invalid date format")
-    .refine((date) => {
-      const datetime = DateTime.fromJSDate(date, {
-        zone: BUSINESS_HOURS_CONFIG.timezone,
-      });
-      return isSlotWithinBusinessHours(datetime);
-    }, "Selected time is outside clinic hours (10:00 AM - 2:00 PM, 4:00 PM - 10:00 PM)")
-    .refine((date) => {
-      const datetime = DateTime.fromJSDate(date, {
-        zone: BUSINESS_HOURS_CONFIG.timezone,
-      });
-      return isSlotAligned(datetime);
-    }, "Please select a valid time slot")
     .optional(),
 });
 
@@ -250,9 +239,8 @@ export const confirmAppointmentSchema = z.object({
   isPhoneBooking: z.boolean().optional(),
   // Doctor selection (required — must select a treating doctor)
   doctorId: z.string().uuid("Invalid doctor ID"),
-  // Payment
+  // Payment — only amountDue set at confirmation; individual payments via /api/payments
   totalAmount: z.number().min(0, "Total amount must be 0 or greater").optional(),
-  paidAmount: z.number().min(0, "Paid amount must be 0 or greater").optional(),
 });
 
 export type ConfirmAppointmentInput = z.input<typeof confirmAppointmentSchema>;

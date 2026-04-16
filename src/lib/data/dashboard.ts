@@ -86,6 +86,7 @@ export async function fetchAppointments(dateFilter: DateFilter = "today") {
     patient: true,
     prescription: { select: { id: true, prescriptionId: true } },
     doctor: { select: { id: true, name: true, qualifications: true } },
+    payments: { select: { amount: true, method: true } },
   } as const;
 
   const [total, appointments] = await Promise.all([
@@ -93,21 +94,27 @@ export async function fetchAppointments(dateFilter: DateFilter = "today") {
     prisma.appointment.findMany({ where, include, orderBy, take: 30, skip: 0 }),
   ]);
 
-  const serialized = appointments.map((a) => ({
-    ...a,
-    createdAt: a.createdAt.toISOString(),
-    updatedAt: a.updatedAt.toISOString(),
-    preferredDateTime: a.preferredDateTime.toISOString(),
-    totalAmount: a.totalAmount != null ? Number(a.totalAmount) : null,
-    paidAmount: a.paidAmount != null ? Number(a.paidAmount) : null,
-    patient: {
-      ...a.patient,
-      createdAt: a.patient.createdAt.toISOString(),
-      updatedAt: a.patient.updatedAt.toISOString(),
-    },
-    prescription: a.prescription ?? null,
-    doctor: a.doctor ?? null,
-  }));
+  const serialized = appointments.map((a) => {
+    const totalPaid = a.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const isWaived = a.payments.some((p) => p.method === "WAIVED");
+    return {
+      ...a,
+      isWaived,
+      createdAt: a.createdAt.toISOString(),
+      updatedAt: a.updatedAt.toISOString(),
+      preferredDateTime: a.preferredDateTime.toISOString(),
+      totalAmount: a.totalAmount != null ? Number(a.totalAmount) : null,
+      totalPaid,
+      payments: undefined,
+      patient: {
+        ...a.patient,
+        createdAt: a.patient.createdAt.toISOString(),
+        updatedAt: a.patient.updatedAt.toISOString(),
+      },
+      prescription: a.prescription ?? null,
+      doctor: a.doctor ?? null,
+    };
+  });
 
   return { appointments: serialized, total };
 }

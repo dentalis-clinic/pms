@@ -43,7 +43,7 @@ export default function AppointmentsView({
   initialAppointments,
   initialTotal,
 }: AppointmentsViewProps) {
-  const { refreshKey, openConfirmAppointment } = useDashboard();
+  const { refreshKey } = useDashboard();
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -82,16 +82,18 @@ export default function AppointmentsView({
     [router, pathname]
   );
 
-  // Core fetch — all params explicit, no stale closures
+  // Core fetch — all params explicit, no stale closures.
+  // `silent` skips the loading spinner so PatientTable stays mounted (preserves modal state).
   const fetchPage = useCallback(
     async (
       tab: DateTab,
       status: StatusFilter,
       type: TypeFilter,
       q: string,
-      p: number
+      p: number,
+      silent = false
     ) => {
-      setLoading(true);
+      if (!silent) setLoading(true);
       try {
         const params = new URLSearchParams();
         if (tab !== "all") params.set("dateFilter", tab);
@@ -257,8 +259,7 @@ export default function AppointmentsView({
       ) : (
         <PatientTable
           appointments={appointments}
-          onRefresh={() => fetchPage(activeTab, statusFilter, typeFilter, search, page)}
-          onConfirmAppointment={openConfirmAppointment}
+          onRefresh={() => fetchPage(activeTab, statusFilter, typeFilter, search, page, true)}
         />
       )}
 

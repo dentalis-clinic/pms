@@ -31,6 +31,25 @@ export async function generatePatientId(
 }
 
 /**
+ * Generate an appointment ID in the format APT-YYYYMMDD-XXXX.
+ * Must be called inside a serializable Prisma transaction.
+ */
+export async function generateAppointmentId(
+  tx: TxClient,
+  retryOffset = 0
+): Promise<string> {
+  const todayIST = getCurrentISTDate();
+  const prefix = `APT-${todayIST}`;
+
+  const todayCount = await tx.appointment.count({
+    where: { appointmentId: { startsWith: prefix } },
+  });
+
+  const serial = (todayCount + 1 + retryOffset).toString().padStart(4, "0");
+  return `${prefix}-${serial}`;
+}
+
+/**
  * Find an existing patient by normalized phone + case-insensitive name,
  * or create a new one with a generated DDCJ ID.
  *

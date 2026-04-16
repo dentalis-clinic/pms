@@ -55,6 +55,14 @@ enum Sex {
   OTHER
 }
 
+enum PaymentMethod {
+  CASH
+  UPI
+  CARD
+  WAIVED
+  OTHER
+}
+
 // --- Models ---
 
 /// Permanent person record. One patient = one DDCJ ID, many appointments.
@@ -80,6 +88,7 @@ model Patient {
 /// Visit/booking event linked to a patient.
 model Appointment {
   id                String            @id @default(uuid())
+  appointmentId     String            @unique // APT-YYYYMMDD-XXXX (generated once, permanent)
   patientId         String
 
   // NEW: Separate channel and visit type (replaces conflated `type`)
@@ -97,8 +106,7 @@ model Appointment {
   adminUserId       String?
   doctorId          String?
   notes             String?           @db.Text
-  totalAmount       Decimal?          @db.Decimal(10, 2)
-  paidAmount        Decimal?          @db.Decimal(10, 2)
+  totalAmount       Decimal?          @db.Decimal(10, 2) // amountDue (after discount)
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -106,7 +114,9 @@ model Appointment {
   admin        Admin?        @relation("appointmentAdmin", fields: [adminUserId], references: [id])
   doctor       Doctor?       @relation("appointmentDoctor", fields: [doctorId], references: [id])
   prescription Prescription?
+  payments     Payment[]
 
+  @@index([appointmentId])
   @@index([patientId])
   @@index([status])
   @@index([preferredDateTime])
@@ -154,6 +164,27 @@ model Doctor {
   @@map("doctors")
 }
 
+/// Individual payment transaction against an appointment's bill.
+/// Multiple entries per appointment support partial payments and waivers.
+model Payment {
+  id            String        @id @default(uuid())
+  appointmentId String
+  amount        Decimal       @db.Decimal(10, 2)
+  method        PaymentMethod
+  paidAt        DateTime      @default(now())
+  recordedById  String
+  notes         String?       @db.Text
+  createdAt     DateTime      @default(now())
+
+  appointment  Appointment @relation(fields: [appointmentId], references: [id])
+  recordedBy   Admin       @relation("paymentRecorder", fields: [recordedById], references: [id])
+
+  @@index([appointmentId])
+  @@index([paidAt])
+  @@index([recordedById])
+  @@map("payments")
+}
+
 /// Admin/Doctor user. ID matches Supabase auth.users.id.
 model Admin {
   id        String   @id // From Supabase auth.users (shared UUID)
@@ -164,6 +195,7 @@ model Admin {
 
   appointments  Appointment[]  @relation("appointmentAdmin")
   prescriptions Prescription[] @relation("prescriber")
+  payments      Payment[]      @relation("paymentRecorder")
 
   @@map("admins")
 }

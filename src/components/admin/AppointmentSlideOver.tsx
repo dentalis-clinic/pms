@@ -25,6 +25,9 @@ export default function AppointmentSlideOver() {
   const [age, setAge] = useState<string>("");
   const [totalAmount, setTotalAmount] = useState<string>("");
   const [paidAmount, setPaidAmount] = useState<string>("");
+  const [paymentMethod, setPaymentMethod] = useState<string>("CASH");
+  const [paymentComment, setPaymentComment] = useState<string>("");
+  const [isWaived, setIsWaived] = useState<boolean>(false);
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [preferredDateTime, setPreferredDateTime] = useState("");
@@ -113,6 +116,9 @@ export default function AppointmentSlideOver() {
       setSelectedDoctorId(appointment.doctorId ?? "");
       setTotalAmount("");
       setPaidAmount("");
+      setPaymentMethod("CASH");
+      setPaymentComment("");
+      setIsWaived(false);
     } else {
       // New appointment mode — blank with current datetime
       setPhone("");
@@ -128,6 +134,9 @@ export default function AppointmentSlideOver() {
       setSelectedDoctorId("");
       setTotalAmount("");
       setPaidAmount("");
+      setPaymentMethod("CASH");
+      setPaymentComment("");
+      setIsWaived(false);
     }
   }, [open, appointment]);
 
@@ -242,7 +251,6 @@ export default function AppointmentSlideOver() {
 
     const parsedAge = age !== "" ? parseInt(age, 10) : undefined;
     const parsedTotal = totalAmount !== "" ? parseFloat(totalAmount) : undefined;
-    const parsedPaid = paidAmount !== "" ? parseFloat(paidAmount) : undefined;
 
     const payload: Record<string, unknown> = {
       phone,
@@ -255,7 +263,6 @@ export default function AppointmentSlideOver() {
       reasonForVisit: reasonForVisit || undefined,
       allowOverride: true,
       totalAmount: parsedTotal,
-      paidAmount: parsedPaid,
     };
 
     if (isConfirmMode) {
@@ -296,6 +303,33 @@ export default function AppointmentSlideOver() {
       if (!res.ok || !data.success) {
         setError(data.error || "Something went wrong.");
         return;
+      }
+
+      // Post payment entry after appointment is created
+      const parsedPaid = paidAmount !== "" ? parseFloat(paidAmount) : 0;
+      const parsedTotal = totalAmount !== "" ? parseFloat(totalAmount) : 0;
+      if (isWaived && parsedTotal > 0) {
+        await fetch("/api/payments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            appointmentId: data.appointmentId,
+            amount: parsedTotal,
+            method: "WAIVED",
+            notes: paymentComment.trim() || null,
+          }),
+        });
+      } else if (parsedPaid > 0) {
+        await fetch("/api/payments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            appointmentId: data.appointmentId,
+            amount: parsedPaid,
+            method: paymentMethod,
+            notes: paymentComment.trim() || null,
+          }),
+        });
       }
 
       if (openPrescription) {
@@ -657,33 +691,92 @@ export default function AppointmentSlideOver() {
               Payment
             </legend>
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField label="Total Amount (₹)" htmlFor="totalAmount" hint="Optional">
-                <Input
-                  id="totalAmount"
-                  type="number"
-                  placeholder="0.00"
-                  value={totalAmount}
-                  onChange={(e) => setTotalAmount(e.target.value)}
+            {/* Waive toggle */}
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  id="isWaived"
+                  checked={isWaived}
+                  onChange={(e) => setIsWaived(e.target.checked)}
                   disabled={submitting}
-                  min={0}
-                  step="0.01"
                 />
-              </FormField>
+                <div className="h-5 w-9 rounded-full border border-border-secondary bg-surface-secondary peer-checked:bg-interactive-primary peer-checked:border-interactive-primary transition-colors" />
+                <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
+              </div>
+              <span className="text-sm text-text-primary">Waive off payment</span>
+              {isWaived && (
+                <span className="text-xs text-text-hint">(all fields locked except comment)</span>
+              )}
+            </label>
 
-              <FormField label="Paid Amount (₹)" htmlFor="paidAmount" hint="Optional">
-                <Input
-                  id="paidAmount"
-                  type="number"
-                  placeholder="0.00"
-                  value={paidAmount}
-                  onChange={(e) => setPaidAmount(e.target.value)}
-                  disabled={submitting}
-                  min={0}
-                  step="0.01"
-                />
-              </FormField>
-            </div>
+            {/* Total Amount */}
+            <FormField label="Total Amount (₹)" htmlFor="totalAmount" hint="Bill amount after discount — optional">
+              <Input
+                id="totalAmount"
+                type="number"
+                placeholder="0.00"
+                value={totalAmount}
+                onChange={(e) => setTotalAmount(e.target.value)}
+                disabled={submitting || isWaived}
+                min={0}
+                step="0.01"
+              />
+            </FormField>
+
+            {/* Paid Amount */}
+            <FormField label="Paid Amount (₹)" htmlFor="paidAmount" hint="Amount collected now">
+              <Input
+                id="paidAmount"
+                type="number"
+                placeholder="0.00"
+                value={paidAmount}
+                onChange={(e) => setPaidAmount(e.target.value)}
+                disabled={submitting || isWaived}
+                min={0}
+                step="0.01"
+              />
+              {totalAmount !== "" && paidAmount !== "" && !isWaived && (
+                <p className="mt-1 text-xs text-text-hint">
+                  Due: ₹{Math.max(0, parseFloat(totalAmount || "0") - parseFloat(paidAmount || "0")).toFixed(2)}
+                </p>
+              )}
+            </FormField>
+
+            {/* Payment Mode */}
+            <FormField label="Payment Mode" htmlFor="paymentMethod">
+              <div className="flex flex-wrap gap-2">
+                {(["CASH", "UPI", "CARD", "OTHER"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setPaymentMethod(m)}
+                    disabled={submitting || isWaived}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:opacity-40 ${
+                      paymentMethod === m && !isWaived
+                        ? "border-border-focus bg-surface-highlight text-text-primary"
+                        : "border-border-primary bg-surface-primary text-text-secondary hover:bg-surface-secondary"
+                    }`}
+                  >
+                    {m === "CASH" ? "Cash" : m === "UPI" ? "UPI" : m === "CARD" ? "Card" : "Other"}
+                  </button>
+                ))}
+              </div>
+            </FormField>
+
+            {/* Comment */}
+            <FormField label="Comment" htmlFor="paymentComment" hint="Optional">
+              <Input
+                id="paymentComment"
+                type="text"
+                placeholder={isWaived ? "e.g. Waived for financial hardship" : "e.g. Partial payment, UPI ref #123"}
+                value={paymentComment}
+                onChange={(e) => setPaymentComment(e.target.value)}
+                disabled={submitting}
+                maxLength={500}
+              />
+            </FormField>
           </fieldset>
 
           {/* --- Submit --- */}

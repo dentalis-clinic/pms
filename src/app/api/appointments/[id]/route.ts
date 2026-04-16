@@ -78,7 +78,6 @@ export async function PATCH(
     if (data.priority !== undefined) updateData.priority = data.priority;
     if (data.doctorId !== undefined) updateData.doctorId = data.doctorId ?? null;
     if (data.totalAmount !== undefined) updateData.totalAmount = data.totalAmount ?? null;
-    if (data.paidAmount !== undefined) updateData.paidAmount = data.paidAmount ?? null;
     if (data.reasonForVisit !== undefined)
       updateData.reasonForVisit = data.reasonForVisit || null;
     if (data.notes !== undefined) updateData.notes = data.notes || null;

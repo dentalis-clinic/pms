@@ -14,7 +14,6 @@ interface PatientTableProps {
   appointments: AppointmentRow[];
   onRefresh: () => void;
   highlightId?: string;
-  onConfirmAppointment: (appointment: AppointmentRow) => void;
 }
 
 type SortKey = "name" | "preferredDateTime" | "status";
@@ -220,7 +219,6 @@ export default function PatientTable({
   appointments,
   onRefresh,
   highlightId,
-  onConfirmAppointment,
 }: PatientTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>("preferredDateTime");
   const [sortAsc, setSortAsc] = useState(false);
@@ -515,12 +513,8 @@ export default function PatientTable({
               const isHighlighted = highlightId === a.id;
               const statusBadge = STATUS_BADGE[a.status];
 
-              const paymentText = (() => {
-                if (a.totalAmount == null && a.paidAmount == null) return "—";
-                const paid = a.paidAmount != null ? `₹${a.paidAmount}` : "₹0";
-                const total = a.totalAmount != null ? `₹${a.totalAmount}` : "—";
-                return `${paid}/${total}`;
-              })();
+              const balance =
+                a.totalAmount != null ? a.totalAmount - a.totalPaid : null;
 
               return (
                 <tr
@@ -589,11 +583,15 @@ export default function PatientTable({
                   </td>
 
                   {/* Payment */}
-                  <td className="whitespace-nowrap px-3 py-2 text-text-secondary">
-                    {paymentText === "—" ? (
+                  <td className="whitespace-nowrap px-3 py-2">
+                    {a.isWaived ? (
+                      <span className="text-text-secondary font-medium">Waived</span>
+                    ) : balance == null ? (
                       <span className="text-text-tertiary">—</span>
+                    ) : balance === 0 ? (
+                      <span className="text-text-success font-medium">Paid</span>
                     ) : (
-                      paymentText
+                      <span className="text-text-error font-medium">₹{balance.toFixed(2)} due</span>
                     )}
                   </td>
 
@@ -666,7 +664,7 @@ export default function PatientTable({
         <AppointmentDetailsModal
           appointment={selectedAppointment}
           onClose={() => setSelectedAppointment(null)}
-          onConfirmAppointment={onConfirmAppointment}
+          onEdit={(appt) => { setSelectedAppointment(null); setEditingAppointment(appt); }}
           onRefresh={onRefresh}
         />
       )}

@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
       patient: true,
       prescription: { select: { id: true, prescriptionId: true } },
       doctor: { select: { id: true, name: true, qualifications: true } },
+      payments: { select: { amount: true, method: true } },
     } as const;
 
     // Status transitions handled by Supabase pg_cron (scripts/setup-pg-cron.sql).
@@ -90,21 +91,27 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
-    const serialized = appointments.map((a) => ({
-      ...a,
-      createdAt: a.createdAt.toISOString(),
-      updatedAt: a.updatedAt.toISOString(),
-      preferredDateTime: a.preferredDateTime.toISOString(),
-      totalAmount: a.totalAmount != null ? Number(a.totalAmount) : null,
-      paidAmount: a.paidAmount != null ? Number(a.paidAmount) : null,
-      patient: {
-        ...a.patient,
-        createdAt: a.patient.createdAt.toISOString(),
-        updatedAt: a.patient.updatedAt.toISOString(),
-      },
-      prescription: a.prescription ?? null,
-      doctor: a.doctor ?? null,
-    }));
+    const serialized = appointments.map((a) => {
+      const totalPaid = a.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+      const isWaived = a.payments.some((p) => p.method === "WAIVED");
+      return {
+        ...a,
+        isWaived,
+        createdAt: a.createdAt.toISOString(),
+        updatedAt: a.updatedAt.toISOString(),
+        preferredDateTime: a.preferredDateTime.toISOString(),
+        totalAmount: a.totalAmount != null ? Number(a.totalAmount) : null,
+        totalPaid,
+        payments: undefined, // don't expose raw payment rows to client
+        patient: {
+          ...a.patient,
+          createdAt: a.patient.createdAt.toISOString(),
+          updatedAt: a.patient.updatedAt.toISOString(),
+        },
+        prescription: a.prescription ?? null,
+        doctor: a.doctor ?? null,
+      };
+    });
 
     return NextResponse.json({
       success: true,

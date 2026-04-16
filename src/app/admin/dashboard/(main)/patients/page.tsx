@@ -18,11 +18,14 @@ async function fetchPatients() {
         sex: true,
         address: true,
         createdAt: true,
-        _count: { select: { appointments: true } },
         appointments: {
+          where: { status: { not: "CANCELLED" } },
+          select: {
+            preferredDateTime: true,
+            totalAmount: true,
+            payments: { select: { amount: true } },
+          },
           orderBy: { preferredDateTime: "desc" },
-          take: 1,
-          select: { preferredDateTime: true },
         },
       },
     }),
@@ -30,22 +33,37 @@ async function fetchPatients() {
   ]);
 
   return {
-    patients: patients.map((p) => ({
-      id: p.id,
-      patientId: p.patientId,
-      name: p.name,
-      phone: p.phone,
-      email: p.email,
-      age: p.age,
-      sex: p.sex,
-      address: p.address,
-      createdAt: p.createdAt.toISOString(),
-      totalVisits: p._count.appointments,
-      lastVisit:
-        p.appointments.length > 0
-          ? p.appointments[0].preferredDateTime.toISOString()
-          : null,
-    })),
+    patients: patients.map((p) => {
+      // Compute outstanding balance across all non-cancelled appointments
+      let outstanding = 0;
+      let lastVisit: string | null = null;
+
+      for (const apt of p.appointments) {
+        if (lastVisit === null) {
+          lastVisit = apt.preferredDateTime.toISOString();
+        }
+        if (apt.totalAmount != null) {
+          const paid = apt.payments.reduce((sum, pay) => sum + Number(pay.amount), 0);
+          const bal = Number(apt.totalAmount) - paid;
+          if (bal > 0) outstanding += bal;
+        }
+      }
+
+      return {
+        id: p.id,
+        patientId: p.patientId,
+        name: p.name,
+        phone: p.phone,
+        email: p.email,
+        age: p.age,
+        sex: p.sex,
+        address: p.address,
+        createdAt: p.createdAt.toISOString(),
+        totalVisits: p.appointments.length,
+        lastVisit,
+        outstanding: Math.round(outstanding * 100) / 100,
+      };
+    }),
     total,
   };
 }

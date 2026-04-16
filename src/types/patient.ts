@@ -49,8 +49,9 @@ export interface AppointmentRow {
   adminUserId: string | null;
   doctorId: string | null;
   notes: string | null;
-  totalAmount: number | null;
-  paidAmount: number | null;
+  totalAmount: number | null; // amountDue (after discount)
+  totalPaid: number;          // sum of all payment entries
+  isWaived: boolean;          // true if any payment has method=WAIVED
   createdAt: string;
   updatedAt: string;
   // Joined
