@@ -209,8 +209,16 @@ export default function AppointmentSlideOver() {
     [isConfirmMode]
   );
 
+  function toTitleCase(value: string) {
+    return value
+      .trim()
+      .split(/\s+/)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  }
+
   function autoFillFromPatient(patient: PatientMatch) {
-    setName(patient.name);
+    setName(toTitleCase(patient.name));
     setSex((patient.sex as "MALE" | "FEMALE" | "OTHER") ?? "");
     setAge(patient.age != null ? String(patient.age) : "");
     setEmail(patient.email ?? "");
@@ -417,8 +425,8 @@ export default function AppointmentSlideOver() {
               </div>
             </FormField>
 
-            {/* Patient dropdown (multiple matches) */}
-            {!isConfirmMode && matchedPatients.length > 1 && (
+            {/* Patient dropdown (single or multiple matches) */}
+            {!isConfirmMode && matchedPatients.length >= 1 && (
               <FormField label="Select Patient" htmlFor="patientSelect">
                 <select
                   id="patientSelect"
@@ -440,13 +448,6 @@ export default function AppointmentSlideOver() {
               </FormField>
             )}
 
-            {/* Single match info */}
-            {!isConfirmMode && matchedPatients.length === 1 && selectedPatientId && (
-              <Alert variant="info">
-                Existing patient found: <strong>{matchedPatients[0].name}</strong> ({matchedPatients[0].patientId})
-              </Alert>
-            )}
-
             {/* Name */}
             <FormField label="Full Name" htmlFor="name">
               <Input
@@ -455,6 +456,7 @@ export default function AppointmentSlideOver() {
                 placeholder="Patient full name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                onBlur={(e) => setName(toTitleCase(e.target.value))}
                 disabled={submitting}
                 required
                 maxLength={100}

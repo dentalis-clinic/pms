@@ -24,10 +24,12 @@ function KebabMenu({
   appointment,
   onEdit,
   onRefresh,
+  onComplete,
 }: {
   appointment: AppointmentRow;
   onEdit: () => void;
   onRefresh: () => void;
+  onComplete?: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [confirmingAction, setConfirmingAction] = useState<"cancel" | "delete" | null>(null);
@@ -37,6 +39,7 @@ function KebabMenu({
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
 
   const { status } = appointment;
+  const canComplete = status === "CONFIRMED";
   const canCancel = status === "PENDING" || status === "OVERDUE" || status === "CONFIRMED";
   const canDelete = status === "COMPLETED" || status === "CANCELLED";
 
@@ -140,6 +143,25 @@ function KebabMenu({
                 Edit
               </button>
 
+              {/* Mark Complete — CONFIRMED */}
+              {canComplete && onComplete && (
+                <button
+                  type="button"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    setActing(true);
+                    try { await onComplete(); } finally { setActing(false); setOpen(false); }
+                  }}
+                  disabled={acting}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-text-success hover:bg-surface-success/50 disabled:opacity-50"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clipRule="evenodd" />
+                  </svg>
+                  {acting ? "..." : "Mark Complete"}
+                </button>
+              )}
+
               {/* Cancel — PENDING, OVERDUE, CONFIRMED */}
               {canCancel && (
                 <button
@@ -229,29 +251,10 @@ export default function PatientTable({
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirmingAction, setConfirmingAction] = useState<"cancel" | "delete" | null>(null);
 
-  // Mark Complete inline state
-  const [completingId, setCompletingId] = useState<string | null>(null);
-
   // Modal state
   const [selectedPatient, setSelectedPatient] = useState<PatientRow | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentRow | null>(null);
   const [editingAppointment, setEditingAppointment] = useState<AppointmentRow | null>(null);
-
-  const handleMarkComplete = useCallback(async (appointmentId: string) => {
-    setCompletingId(appointmentId);
-    try {
-      const res = await fetch(`/api/appointments/${appointmentId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "COMPLETED" }),
-      });
-      if (res.ok) onRefresh();
-    } catch {
-      // silently fail, user can retry
-    } finally {
-      setCompletingId(null);
-    }
-  }, [onRefresh]);
 
   // Clear selection when appointments change
   useEffect(() => {
@@ -620,28 +623,24 @@ export default function PatientTable({
                     )}
                   </td>
 
-                  {/* Actions: Mark Complete + Kebab */}
+                  {/* Actions: Kebab */}
                   <td
                     className="whitespace-nowrap px-3 py-2"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="flex items-center gap-1.5">
-                      {a.status === "CONFIRMED" && (
-                        <button
-                          type="button"
-                          onClick={() => handleMarkComplete(a.id)}
-                          disabled={completingId === a.id}
-                          className="rounded bg-interactive-success px-2.5 py-1 text-xs font-medium text-text-inverse hover:bg-interactive-success-hover disabled:opacity-50"
-                        >
-                          {completingId === a.id ? "..." : "Complete"}
-                        </button>
-                      )}
-                      <KebabMenu
-                        appointment={a}
-                        onEdit={() => setEditingAppointment(a)}
-                        onRefresh={onRefresh}
-                      />
-                    </div>
+                    <KebabMenu
+                      appointment={a}
+                      onEdit={() => setEditingAppointment(a)}
+                      onRefresh={onRefresh}
+                      onComplete={a.status === "CONFIRMED" ? async () => {
+                        const res = await fetch(`/api/appointments/${a.id}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ status: "COMPLETED" }),
+                        });
+                        if (res.ok) onRefresh();
+                      } : undefined}
+                    />
                   </td>
                 </tr>
               );
