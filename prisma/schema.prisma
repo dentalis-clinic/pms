@@ -185,6 +185,24 @@ model Payment {
   @@map("payments")
 }
 
+enum TemplateType {
+  DOCUMENT
+  SURVEY
+}
+
+/// Custom printable document template (consent forms, post-treatment instructions, screening surveys, etc.)
+model printable_templates {
+  id                 String       @id @default(uuid())
+  title              String
+  templateType       TemplateType @default(DOCUMENT)
+  showPatientDetails Boolean      @default(false)
+  content            String       @db.Text
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@map("printable_templates")
+}
+
 /// Admin/Doctor user. ID matches Supabase auth.users.id.
 model Admin {
   id        String   @id // From Supabase auth.users (shared UUID)

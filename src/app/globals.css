@@ -648,3 +648,40 @@ body {
     padding-left: 0 !important;
   }
 }
+/* Tiptap editor list + blockquote styles — Tailwind preflight resets these */
+.ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.ProseMirror li {
+  margin: 0.125rem 0;
+}
+
+.ProseMirror li p {
+  margin: 0;
+}
+
+.ProseMirror blockquote {
+  border-left: 3px solid var(--color-border-secondary, #cfcfdd);
+  padding-left: 0.875rem;
+  margin: 0.5rem 0;
+  color: var(--color-text-secondary, #5c5c78);
+  font-style: italic;
+}
+
+/* Tiptap editor placeholder */
+.tiptap p.is-editor-empty:first-child::before {
+  color: var(--color-text-hint, #9ca3af);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
